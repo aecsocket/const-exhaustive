@@ -43,8 +43,6 @@ use {
 /// This trait is not possible to implement on more complex types such as
 /// strings or collections, since they are inherently non-exhaustive.
 ///
-/// # Limitations
-///
 /// # Examples
 ///
 /// ```
@@ -79,6 +77,21 @@ use {
 /// # Safety
 ///
 /// All possible values of this type must be present in [`Exhaustive::ALL`].
+///
+/// You should prefer deriving this trait instead of implementing it manually
+/// where possible.
+///
+/// # Limitations
+///
+/// These are technically possible, but have not been implemented yet:
+/// - `impl<T: Exhaustive, const N: usize> Exhaustive for [T; N]`
+///   - complicated logic for generating each permutation
+/// - deriving on a type with generics
+///   - requires extra `where` bounds which are hard to create
+///   - you can still technically do this, but requires more explicit `where`
+///     bounds
+///
+/// PRs welcome!
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not `Exhaustive`",
     label = "not exhaustive",

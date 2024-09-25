@@ -17,15 +17,34 @@ fn unit_struct() {
     assert_eq!([Unit], Unit::ALL.as_slice());
 }
 
-/*
 #[test]
 fn tuples() {
     assert_eq!(
-        [(false, false), (true, false), (false, true), (true, true)],
+        [(false, false), (false, true), (true, false), (true, true)],
         <(bool, bool)>::ALL.as_slice()
+    );
+
+    #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
+    enum Foo {
+        A,
+        B,
+        C,
+    }
+
+    assert_eq!(
+        [
+            (false, Foo::A),
+            (false, Foo::B),
+            (false, Foo::C),
+            (true, Foo::A),
+            (true, Foo::B),
+            (true, Foo::C),
+        ],
+        <(bool, Foo)>::ALL.as_slice()
     );
 }
 
+/*
 #[test]
 fn generic() {
     #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
