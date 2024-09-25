@@ -6,8 +6,8 @@ use {
     proc_macro2::{Span, TokenStream},
     quote::{ToTokens, quote},
     syn::{
-        Data, DataEnum, DataStruct, DeriveInput, Error, ExprTuple, Field, Fields, FieldsUnnamed,
-        Ident, PatTuple, Result, TypeTuple, parse_macro_input, parse2, spanned::Spanned,
+        Data, DataEnum, DataStruct, DeriveInput, Error, Field, Fields, Ident, Result,
+        parse_macro_input,
     },
 };
 
@@ -50,30 +50,6 @@ fn derive(input: &DeriveInput) -> Result<TokenStream> {
 struct ExhaustiveImpl {
     num: TokenStream,
     values: TokenStream,
-}
-
-fn impl_body(num: impl ToTokens, values: impl ToTokens) -> TokenStream {
-    quote! {
-        type Num = #num;
-
-        const ALL: ::const_exhaustive::generic_array::GenericArray<Self, Self::Num> = {
-            let all: ::const_exhaustive::generic_array::GenericArray<
-                ::core::cell::UnsafeCell<
-                    ::core::mem::MaybeUninit<Self>
-                >, Self::Num
-            > = unsafe {
-                ::core::mem::MaybeUninit::uninit().assume_init()
-            };
-
-            let mut i = 0;
-
-            #values
-
-            unsafe {
-                ::const_exhaustive::const_transmute(all)
-            }
-        };
-    }
 }
 
 fn make_for_struct(data: &DataStruct) -> ExhaustiveImpl {
@@ -207,7 +183,10 @@ fn make_for_fields(fields: &Fields, construct_ident: impl ToTokens) -> Exhaustiv
         },
     );
 
-    let values = fields.iter().fold(
+    // rfold here so that the value order matches the tuple value order
+    // e.g. we generate i_0 { i_1 { i_2 } }
+    //       instead of i_2 { i_1 { i_0 } }
+    let values = fields.iter().rfold(
         quote! {
             let ptr = all.as_slice()[i].get();
             unsafe {
@@ -230,29 +209,26 @@ fn make_for_fields(fields: &Fields, construct_ident: impl ToTokens) -> Exhaustiv
     ExhaustiveImpl { num, values }
 }
 
-#[proc_macro]
-pub fn __impl_for_tuple(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    impl_for_tuple(input.into())
-        .unwrap_or_else(|err| err.to_compile_error())
-        .into()
-}
+fn impl_body(num: impl ToTokens, values: impl ToTokens) -> TokenStream {
+    quote! {
+        type Num = #num;
 
-fn impl_for_tuple(input: TokenStream) -> Result<TokenStream> {
-    let span = input.span();
-    let fields =
-        parse2::<FieldsUnnamed>(input).map_err(|_| Error::new(span, "must be tuple fields"))?;
+        const ALL: ::const_exhaustive::generic_array::GenericArray<Self, Self::Num> = {
+            let all: ::const_exhaustive::generic_array::GenericArray<
+                ::core::cell::UnsafeCell<
+                    ::core::mem::MaybeUninit<Self>
+                >, Self::Num
+            > = unsafe {
+                ::core::mem::MaybeUninit::uninit().assume_init()
+            };
 
-    let wrapped = Fields::Unnamed(fields);
-    let ExhaustiveImpl { num, values } = make_for_fields(&wrapped, quote! {});
-    let Fields::Unnamed(fields) = wrapped else {
-        unreachable!();
-    };
+            let mut i = 0;
 
-    let elems = fields.unnamed;
-    let body = impl_body(num, values);
-    Ok(quote! {
-        unsafe impl<#elems> const_exhaustive::Exhaustive for (#elems) {
-            #body
-        }
-    })
+            #values
+
+            unsafe {
+                ::const_exhaustive::const_transmute(all)
+            }
+        };
+    }
 }

@@ -10,7 +10,7 @@ use {
         ops::Mul,
     },
     generic_array::{ArrayLength, GenericArray},
-    typenum::{Prod, U0, U1, U2, Unsigned},
+    typenum::{U0, U1, U2, Unsigned},
 };
 
 /// All values of this type are known at compile time.
@@ -43,16 +43,18 @@ use {
 /// This trait is not possible to implement on more complex types such as
 /// strings or collections, since they are inherently non-exhaustive.
 ///
+/// # Limitations
+///
 /// # Examples
 ///
 /// ```
 /// use const_exhaustive::Exhaustive;
 ///
 /// // there is 1 value of `()`
-/// assert_eq!([()], <() as Exhaustive>::ALL.as_slice());
+/// assert_eq!([()], <()>::ALL.as_slice());
 ///
 /// // there are 2 values of `bool`
-/// assert_eq!([false, true], <bool as Exhaustive>::ALL.as_slice());
+/// assert_eq!([false, true], bool::ALL.as_slice());
 ///
 /// // write your own exhaustive types
 /// #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
@@ -70,7 +72,7 @@ use {
 ///         Direction::East,
 ///         Direction::West,
 ///     ],
-///     <Direction as Exhaustive>::ALL.as_slice()
+///     Direction::ALL.as_slice()
 /// );
 /// ```
 ///
@@ -102,12 +104,8 @@ pub unsafe trait Exhaustive: Sized + Copy + 'static {
     ///
     /// # Order
     ///
-    /// Values in this array are guaranteed to be in a deterministic but
-    /// implementation-specific order, so you should not rely on the ordering
-    /// of values.
-    ///
-    /// Currently, value permutations are generated in the order that they are
-    /// defined in the struct or enum itself. Some examples:
+    /// Values in this array are guaranteed to be in a specific order, similar
+    /// in concept to binary counting. Some examples:
     ///
     /// ## Primitives
     ///
@@ -115,20 +113,36 @@ pub unsafe trait Exhaustive: Sized + Copy + 'static {
     /// - [`()`]: `[ () ]`
     /// - [`bool`]: `[ false, true ]`
     ///
+    /// ## Tuples
+    ///
+    /// ```
+    /// # use const_exhaustive::Exhaustive;
+    /// // in the same way that you count up in binary in this order:
+    /// //   00, 01, 10, 11
+    /// // we use a similar order for tuples
+    ///
+    /// assert_eq!(
+    ///     [(false, false), (false, true), (true, false), (true, true)],
+    ///     <(bool, bool)>::ALL.as_slice(),
+    /// );
+    /// ```
+    ///
     /// ## Derived on structs
     ///
     /// ```
     /// # use const_exhaustive::Exhaustive;
-    /// // equivalent ordering to:
-    /// // struct MyStruct { a: bool, b: bool }
+    /// // this has the exact same ordering as tuples
     /// #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
     /// struct MyStruct(bool, bool);
+    ///
+    /// // this also has the same ordering:
+    /// // struct MyStruct { a: bool, b: bool }
     ///
     /// assert_eq!(
     ///     [
     ///         MyStruct(false, false),
-    ///         MyStruct(true, false),
     ///         MyStruct(false, true),
+    ///         MyStruct(true, false),
     ///         MyStruct(true, true),
     ///     ],
     ///     MyStruct::ALL.as_slice()
@@ -151,17 +165,6 @@ pub unsafe trait Exhaustive: Sized + Copy + 'static {
     ///     MyEnum::ALL.as_slice()
     /// );
     /// ```
-    ///
-    /// ## Tuples
-    ///
-    /// Tuples have the opposite behaviour, where `(bool, bool)` is ordered as:
-    /// - `(false, false)`
-    /// - `(false, true)`
-    /// - `(true, false)`
-    /// - `(true, true)`
-    ///
-    /// This may change in the future to be consistent with the rest of the
-    /// types.
     const ALL: GenericArray<Self, Self::Num>;
 }
 
@@ -206,8 +209,6 @@ pub const unsafe fn const_transmute<A, B>(a: A) -> B {
     ManuallyDrop::into_inner(Union { a }.b)
 }
 
-const_exhaustive_derive::__impl_for_tuple!((A, B));
-
 /*
 // TODO
 unsafe impl<T: Exhaustive, const N: usize> Exhaustive for [T; N]
@@ -227,6 +228,7 @@ where
         unsafe { const_transmute(all) }
     };
 }
+*/
 
 type ProdAll<T> = <T as MulAll>::Output;
 
@@ -302,7 +304,6 @@ impl_for_tuples! {
      A B C D E F G H I J K L M N O,
     A B C D E F G H I J K L M N O P,
 }
-*/
 
 const fn split_index<const N: usize>(mut index: usize, lengths: [usize; N]) -> [usize; N] {
     let mut result = [0; N];

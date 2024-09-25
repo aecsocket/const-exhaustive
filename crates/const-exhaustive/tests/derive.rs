@@ -1,21 +1,6 @@
-//! Test
+//!
 
-use {const_exhaustive::Exhaustive, std::convert::Infallible};
-
-#[test]
-fn primitives() {
-    assert_eq!(0, Infallible::ALL.len());
-    assert_eq!([()], <()>::ALL.as_slice());
-    assert_eq!([false, true], bool::ALL.as_slice());
-}
-
-#[test]
-fn unit_struct() {
-    #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
-    struct Unit;
-
-    assert_eq!([Unit], Unit::ALL.as_slice());
-}
+use const_exhaustive::Exhaustive;
 
 #[test]
 fn tuple_struct() {
@@ -43,13 +28,13 @@ fn tuple_struct() {
     assert_eq!(
         [
             TupleBools(false, false, false),
-            TupleBools(true, false, false),
-            TupleBools(false, true, false),
-            TupleBools(true, true, false),
-            //
             TupleBools(false, false, true),
-            TupleBools(true, false, true),
+            TupleBools(false, true, false),
             TupleBools(false, true, true),
+            //
+            TupleBools(true, false, false),
+            TupleBools(true, false, true),
+            TupleBools(true, true, false),
             TupleBools(true, true, true),
         ],
         TupleBools::ALL.as_slice()
@@ -89,18 +74,18 @@ fn normal_struct() {
             },
             ManyFields {
                 a: (),
+                b: false,
+                c: true,
+            },
+            ManyFields {
+                a: (),
                 b: true,
                 c: false,
             },
             ManyFields {
                 a: (),
-                b: false,
-                c: true
-            },
-            ManyFields {
-                a: (),
                 b: true,
-                c: true
+                c: true,
             }
         ],
         ManyFields::ALL.as_slice()
@@ -148,8 +133,8 @@ fn tuple_variants() {
             Tuples::A(),
             Tuples::B(()),
             Tuples::C(false, false),
-            Tuples::C(true, false),
             Tuples::C(false, true),
+            Tuples::C(true, false),
             Tuples::C(true, true),
         ],
         Tuples::ALL.as_slice()
@@ -174,12 +159,12 @@ fn fielded_variants() {
                 bar: false,
             },
             Fielded::C {
-                foo: true,
-                bar: false,
-            },
-            Fielded::C {
                 foo: false,
                 bar: true,
+            },
+            Fielded::C {
+                foo: true,
+                bar: false,
             },
             Fielded::C {
                 foo: true,
@@ -231,20 +216,6 @@ fn compound() {
         ],
         Compound::ALL.as_slice()
     );
-}
-
-#[test]
-fn tuples() {
-    assert_eq!(
-        [(false, false), (true, false), (false, true), (true, true)],
-        <(bool, bool)>::ALL.as_slice()
-    );
-}
-
-#[test]
-fn generic() {
-    // #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
-    // struct Wrapper<T>(T);
 }
 
 mod hygiene {
