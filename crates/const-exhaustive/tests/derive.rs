@@ -5,7 +5,7 @@ use {const_exhaustive::Exhaustive, std::convert::Infallible};
 #[test]
 fn primitives() {
     assert_eq!(0, Infallible::ALL.len());
-    assert_eq!([()], <() as Exhaustive>::ALL.as_slice());
+    assert_eq!([()], <()>::ALL.as_slice());
     assert_eq!([false, true], bool::ALL.as_slice());
 }
 
@@ -234,6 +234,14 @@ fn compound() {
 }
 
 #[test]
+fn tuples() {
+    assert_eq!(
+        [(false, false), (true, false), (false, true), (true, true)],
+        <(bool, bool)>::ALL.as_slice()
+    );
+}
+
+#[test]
 fn generic() {
     // #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
     // struct Wrapper<T>(T);
@@ -245,7 +253,7 @@ mod hygiene {
         dead_code,
         reason = "if we're getting dead code warnings, we've succeeded"
     )]
-    fn hygiene() {
+    fn test() {
         // try and cause as many ident conflicts as possible
 
         #[derive(Debug, Clone, Copy, const_exhaustive::Exhaustive)]

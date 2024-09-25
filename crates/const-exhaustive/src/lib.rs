@@ -10,7 +10,7 @@ use {
         ops::Mul,
     },
     generic_array::{ArrayLength, GenericArray},
-    typenum::{U, U0, U1, U2, Unsigned},
+    typenum::{Prod, U0, U1, U2, Unsigned},
 };
 
 /// All values of this type are known at compile time.
@@ -102,9 +102,12 @@ pub unsafe trait Exhaustive: Sized + Copy + 'static {
     ///
     /// # Order
     ///
-    /// Values in this array are in a specific, deterministic order. Value
-    /// permutations are generated in the order that they are defined in the
-    /// struct or enum itself. Some examples:
+    /// Values in this array are guaranteed to be in a deterministic but
+    /// implementation-specific order, so you should not rely on the ordering
+    /// of values.
+    ///
+    /// Currently, value permutations are generated in the order that they are
+    /// defined in the struct or enum itself. Some examples:
     ///
     /// ## Primitives
     ///
@@ -148,6 +151,17 @@ pub unsafe trait Exhaustive: Sized + Copy + 'static {
     ///     MyEnum::ALL.as_slice()
     /// );
     /// ```
+    ///
+    /// ## Tuples
+    ///
+    /// Tuples have the opposite behaviour, where `(bool, bool)` is ordered as:
+    /// - `(false, false)`
+    /// - `(false, true)`
+    /// - `(true, false)`
+    /// - `(true, true)`
+    ///
+    /// This may change in the future to be consistent with the rest of the
+    /// types.
     const ALL: GenericArray<Self, Self::Num>;
 }
 
@@ -174,6 +188,26 @@ unsafe impl Exhaustive for bool {
 // https://discord.com/channels/273534239310479360/1120124565591425034/1288260177652617238
 // https://play.rust-lang.org/?version=nightly&mode=debug&edition=2021&gist=3932fdb89b5b8f4e757cb62b43023e01
 
+// must be `pub` since it is used by the derive macro
+#[doc(hidden)]
+pub const unsafe fn const_transmute<A, B>(a: A) -> B {
+    #[repr(C)]
+    union Union<A, B> {
+        a: ManuallyDrop<A>,
+        b: ManuallyDrop<B>,
+    }
+
+    assert!(
+        mem::size_of::<A>() == mem::size_of::<B>(),
+        "size mismatch for `const_transmute`"
+    );
+
+    let a = ManuallyDrop::new(a);
+    ManuallyDrop::into_inner(Union { a }.b)
+}
+
+const_exhaustive_derive::__impl_for_tuple!((A, B));
+
 /*
 // TODO
 unsafe impl<T: Exhaustive, const N: usize> Exhaustive for [T; N]
@@ -193,7 +227,6 @@ where
         unsafe { const_transmute(all) }
     };
 }
-*/
 
 type ProdAll<T> = <T as MulAll>::Output;
 
@@ -235,7 +268,7 @@ macro_rules! impl_for_tuples {
 
                 let mut i = 0;
                 while i < <ProdAll<($($t::Num,)*)>>::USIZE {
-                    #[allow(nonstandard_style)]
+                    #[expect(nonstandard_style, reason = "uppercase variable name")]
                     let [$($t,)*] = split_index(i, [$($t::Num::USIZE,)*]);
                     let tuple = ($($t::ALL.as_slice()[$t],)*);
                     unsafe { *all.as_slice()[i].get() = MaybeUninit::new(tuple) }
@@ -269,24 +302,7 @@ impl_for_tuples! {
      A B C D E F G H I J K L M N O,
     A B C D E F G H I J K L M N O P,
 }
-
-// must be `pub` since it is used by the derive macro
-#[doc(hidden)]
-pub const unsafe fn const_transmute<A, B>(a: A) -> B {
-    #[repr(C)]
-    union Union<A, B> {
-        a: ManuallyDrop<A>,
-        b: ManuallyDrop<B>,
-    }
-
-    assert!(
-        mem::size_of::<A>() == mem::size_of::<B>(),
-        "size mismatch for `const_transmute`"
-    );
-
-    let a = ManuallyDrop::new(a);
-    ManuallyDrop::into_inner(Union { a }.b)
-}
+*/
 
 const fn split_index<const N: usize>(mut index: usize, lengths: [usize; N]) -> [usize; N] {
     let mut result = [0; N];

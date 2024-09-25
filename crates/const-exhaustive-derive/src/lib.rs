@@ -6,8 +6,8 @@ use {
     proc_macro2::{Span, TokenStream},
     quote::{ToTokens, quote},
     syn::{
-        Data, DataEnum, DataStruct, DeriveInput, Error, Field, Fields, Ident, Result,
-        parse_macro_input,
+        Data, DataEnum, DataStruct, DeriveInput, Error, ExprTuple, Field, Fields, FieldsUnnamed,
+        Ident, PatTuple, Result, TypeTuple, parse_macro_input, parse2, spanned::Spanned,
     },
 };
 
@@ -39,36 +39,41 @@ fn derive(input: &DeriveInput) -> Result<TokenStream> {
         }
     };
 
+    let body = impl_body(num, values);
     Ok(quote! {
-        const _: () = {
-            unsafe impl #impl_generics ::const_exhaustive::Exhaustive for #name #type_generics #where_clause {
-                type Num = #num;
-
-                const ALL: ::const_exhaustive::generic_array::GenericArray<Self, Self::Num> = {
-                    let all: ::const_exhaustive::generic_array::GenericArray<
-                        ::core::cell::UnsafeCell<
-                            ::core::mem::MaybeUninit<Self>
-                        >, Self::Num
-                    > = unsafe {
-                        ::core::mem::MaybeUninit::uninit().assume_init()
-                    };
-
-                    let mut i = 0;
-
-                    #values
-
-                    unsafe {
-                        ::const_exhaustive::const_transmute(all)
-                    }
-                };
-            }
-        };
+        unsafe impl #impl_generics ::const_exhaustive::Exhaustive for #name #type_generics #where_clause {
+            #body
+        }
     })
 }
 
 struct ExhaustiveImpl {
     num: TokenStream,
     values: TokenStream,
+}
+
+fn impl_body(num: impl ToTokens, values: impl ToTokens) -> TokenStream {
+    quote! {
+        type Num = #num;
+
+        const ALL: ::const_exhaustive::generic_array::GenericArray<Self, Self::Num> = {
+            let all: ::const_exhaustive::generic_array::GenericArray<
+                ::core::cell::UnsafeCell<
+                    ::core::mem::MaybeUninit<Self>
+                >, Self::Num
+            > = unsafe {
+                ::core::mem::MaybeUninit::uninit().assume_init()
+            };
+
+            let mut i = 0;
+
+            #values
+
+            unsafe {
+                ::const_exhaustive::const_transmute(all)
+            }
+        };
+    }
 }
 
 fn make_for_struct(data: &DataStruct) -> ExhaustiveImpl {
@@ -121,7 +126,7 @@ fn make_for_enum(data: &DataEnum) -> ExhaustiveImpl {
     ExhaustiveImpl { num, values }
 }
 
-fn make_for_fields(fields: &Fields, variant: impl ToTokens) -> ExhaustiveImpl {
+fn make_for_fields(fields: &Fields, construct_ident: impl ToTokens) -> ExhaustiveImpl {
     struct FieldInfo<'a> {
         field: &'a Field,
         index: Ident,
@@ -206,7 +211,7 @@ fn make_for_fields(fields: &Fields, variant: impl ToTokens) -> ExhaustiveImpl {
         quote! {
             let ptr = all.as_slice()[i].get();
             unsafe {
-                *ptr = ::core::mem::MaybeUninit::new(#variant #construct);
+                *ptr = ::core::mem::MaybeUninit::new(#construct_ident #construct);
             };
             i += 1;
         },
@@ -223,4 +228,31 @@ fn make_for_fields(fields: &Fields, variant: impl ToTokens) -> ExhaustiveImpl {
     );
 
     ExhaustiveImpl { num, values }
+}
+
+#[proc_macro]
+pub fn __impl_for_tuple(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    impl_for_tuple(input.into())
+        .unwrap_or_else(|err| err.to_compile_error())
+        .into()
+}
+
+fn impl_for_tuple(input: TokenStream) -> Result<TokenStream> {
+    let span = input.span();
+    let fields =
+        parse2::<FieldsUnnamed>(input).map_err(|_| Error::new(span, "must be tuple fields"))?;
+
+    let wrapped = Fields::Unnamed(fields);
+    let ExhaustiveImpl { num, values } = make_for_fields(&wrapped, quote! {});
+    let Fields::Unnamed(fields) = wrapped else {
+        unreachable!();
+    };
+
+    let elems = fields.unnamed;
+    let body = impl_body(num, values);
+    Ok(quote! {
+        unsafe impl<#elems> const_exhaustive::Exhaustive for (#elems) {
+            #body
+        }
+    })
 }
