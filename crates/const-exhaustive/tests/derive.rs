@@ -206,7 +206,25 @@ unsafe impl Exhaustive for EnumFields {
 #[derive(Debug, Clone, Copy, Exhaustive)]
 struct Testing {
     a: bool,
+    b: TriState,
 }
+
+#[derive(Debug, Clone, Copy, Exhaustive)]
+struct Other;
+
+#[derive(Debug, Clone, Copy, Exhaustive)]
+struct Other2(bool, bool, TriState);
+
+#[derive(Debug, Clone, Copy, Exhaustive)]
+enum Thingy {
+    A,
+    B(bool),
+    C(bool, TriState),
+    D { a: bool, b: Other },
+}
+
+#[derive(Debug, Clone, Copy, Exhaustive)]
+enum Uninhabited {}
 
 #[test]
 fn foo() {
@@ -214,4 +232,7 @@ fn foo() {
     dbg!(StructUnnamedFields::ALL);
     dbg!(EnumFields::ALL);
     dbg!(Testing::ALL);
+    dbg!(Other::ALL);
+    dbg!(Other2::ALL);
+    dbg!(Thingy::ALL);
 }

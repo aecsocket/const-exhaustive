@@ -7,7 +7,7 @@ authors = ["aecsocket <aecsocket@tutanota.com>"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/aecsocket/const-exhaustive"
-rust-version = "1.81.0"
+rust-version = "1.82.0"
 version = "0.1.0"
 
 categories = [] # TODO replace
