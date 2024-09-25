@@ -1,0 +1,9 @@
+# IDEs
+.vscode
+
+# direnv
+.direnv
+.envrc
+
+# Cargo
+/target
