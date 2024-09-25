@@ -4,14 +4,13 @@ resolver = "2"
 
 [workspace.package]
 authors = ["aecsocket <aecsocket@tutanota.com>"]
+categories = ["no-std", "rust-patterns"]
 edition = "2021"
+keywords = ["const"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/aecsocket/const-exhaustive"
 rust-version = "1.82.0"
 version = "0.1.0"
-
-categories = [] # TODO replace
-keywords = []   # TODO replace
 
 [workspace.lints.rust]
 missing_docs = "warn"
