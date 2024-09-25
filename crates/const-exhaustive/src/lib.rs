@@ -100,7 +100,7 @@ use {
 pub unsafe trait Exhaustive: Sized + Copy + 'static {
     /// Number of values that may exist of this type.
     ///
-    /// Use [`num_traits::Unsigned`] to get an actual [`usize`] out of this
+    /// Use [`numtraits::Unsigned`] to get an actual [`usize`] out of this
     /// type.
     ///
     /// # Examples
