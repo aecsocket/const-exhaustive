@@ -11,6 +11,10 @@ use {
     },
 };
 
+/// Derives `const_exhaustive::Exhaustive` on this type.
+///
+/// This type must be [`Clone`] and [`Copy`], and all types contained within
+/// it must also be `Exhaustive`.
 #[proc_macro_derive(Exhaustive)]
 pub fn exhaustive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -36,27 +40,29 @@ fn derive(input: &DeriveInput) -> Result<TokenStream> {
     };
 
     Ok(quote! {
-        unsafe impl #impl_generics ::const_exhaustive::Exhaustive for #name #type_generics #where_clause {
-            type Num = #num;
+        const _: () = {
+            unsafe impl #impl_generics ::const_exhaustive::Exhaustive for #name #type_generics #where_clause {
+                type Num = #num;
 
-            const ALL: ::const_exhaustive::generic_array::GenericArray<Self, Self::Num> = {
-                use {
-                    ::const_exhaustive::{
-                        __util::const_transmute, generic_array::GenericArray, typenum::Unsigned, Exhaustive,
-                    },
-                    ::core::{cell::UnsafeCell, mem::MaybeUninit},
+                const ALL: ::const_exhaustive::generic_array::GenericArray<Self, Self::Num> = {
+                    let all: ::const_exhaustive::generic_array::GenericArray<
+                        ::core::cell::UnsafeCell<
+                            ::core::mem::MaybeUninit<Self>
+                        >, Self::Num
+                    > = unsafe {
+                        ::core::mem::MaybeUninit::uninit().assume_init()
+                    };
+
+                    let mut i = 0;
+
+                    #values
+
+                    unsafe {
+                        ::const_exhaustive::const_transmute(all)
+                    }
                 };
-
-                let all: GenericArray<UnsafeCell<MaybeUninit<Self>>, Self::Num> =
-                    unsafe { MaybeUninit::uninit().assume_init() };
-
-                let mut i = 0;
-
-                #values
-
-                unsafe { const_transmute(all) }
-            };
-        }
+            }
+        };
     })
 }
 
@@ -130,7 +136,7 @@ fn make_for_fields(fields: &Fields, variant: impl ToTokens) -> ExhaustiveImpl {
 
     fn get_value(ty: impl ToTokens, index: impl ToTokens) -> TokenStream {
         quote! {
-            <#ty as Exhaustive>::ALL.as_slice()[#index]
+            <#ty as ::const_exhaustive::Exhaustive>::ALL.as_slice()[#index]
         }
     }
 
@@ -200,7 +206,7 @@ fn make_for_fields(fields: &Fields, variant: impl ToTokens) -> ExhaustiveImpl {
         quote! {
             let ptr = all.as_slice()[i].get();
             unsafe {
-                *ptr = MaybeUninit::new(#variant #construct);
+                *ptr = ::core::mem::MaybeUninit::new(#variant #construct);
             };
             i += 1;
         },
@@ -208,7 +214,7 @@ fn make_for_fields(fields: &Fields, variant: impl ToTokens) -> ExhaustiveImpl {
             let ty = &field.ty;
             quote! {
                 let mut #index = 0usize;
-                while #index < <#ty as Exhaustive>::Num::USIZE {
+                while #index < <<#ty as ::const_exhaustive::Exhaustive>::Num as ::const_exhaustive::typenum::Unsigned>::USIZE {
                     #acc
                     #index += 1;
                 };

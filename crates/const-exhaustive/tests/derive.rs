@@ -1,238 +1,299 @@
 //! Test
 
-use {
-    const_exhaustive::Exhaustive,
-    generic_array::GenericArray,
-    typenum::{Prod, Sum, U3},
-};
-
-#[derive(Debug, Clone, Copy)]
-enum TriState {
-    A,
-    B,
-    C,
-}
-
-unsafe impl Exhaustive for TriState {
-    type Num = U3;
-
-    const ALL: GenericArray<Self, Self::Num> =
-        GenericArray::from_array([Self::A, Self::B, Self::C]);
-}
-
-#[derive(Debug, Clone, Copy)]
-struct StructNamedFields {
-    a: bool,
-    b: bool,
-    c: TriState,
-}
-
-unsafe impl Exhaustive for StructNamedFields {
-    type Num = Prod<
-        Prod<<bool as Exhaustive>::Num, <bool as Exhaustive>::Num>,
-        <TriState as Exhaustive>::Num,
-    >;
-
-    const ALL: GenericArray<Self, Self::Num> = {
-        use {
-            ::const_exhaustive::{
-                __util::const_transmute, generic_array::GenericArray, typenum::Unsigned,
-            },
-            ::core::{cell::UnsafeCell, mem::MaybeUninit},
-        };
-
-        let all: GenericArray<UnsafeCell<MaybeUninit<Self>>, Self::Num> =
-            unsafe { MaybeUninit::uninit().assume_init() };
-
-        let mut i = 0;
-        let mut i_a = 0;
-        while i_a < <bool as Exhaustive>::Num::USIZE {
-            let mut i_b = 0;
-            while i_b < <bool as Exhaustive>::Num::USIZE {
-                let mut i_c = 0;
-                while i_c < <TriState as Exhaustive>::Num::USIZE {
-                    let ptr = all.as_slice()[i].get();
-                    unsafe {
-                        *ptr = MaybeUninit::new(Self {
-                            a: <bool as Exhaustive>::ALL.as_slice()[i_a],
-                            b: <bool as Exhaustive>::ALL.as_slice()[i_b],
-                            c: <TriState as Exhaustive>::ALL.as_slice()[i_c],
-                        });
-                    }
-                    i += 1;
-
-                    i_c += 1;
-                }
-                i_b += 1;
-            }
-            i_a += 1;
-        }
-
-        unsafe { const_transmute(all) }
-    };
-}
-
-#[derive(Debug, Clone, Copy)]
-struct StructUnnamedFields((), bool, TriState);
-
-unsafe impl Exhaustive for StructUnnamedFields {
-    type Num = Prod<
-        Prod<<() as Exhaustive>::Num, <bool as Exhaustive>::Num>,
-        <TriState as Exhaustive>::Num,
-    >;
-
-    const ALL: GenericArray<Self, Self::Num> = {
-        use {
-            ::const_exhaustive::{
-                __util::const_transmute, generic_array::GenericArray, typenum::Unsigned,
-            },
-            ::core::{cell::UnsafeCell, mem::MaybeUninit},
-        };
-
-        let all: GenericArray<UnsafeCell<MaybeUninit<Self>>, Self::Num> =
-            unsafe { MaybeUninit::uninit().assume_init() };
-
-        let mut i = 0;
-        let mut i_0 = 0;
-        while i_0 < <() as Exhaustive>::Num::USIZE {
-            let mut i_1 = 0;
-            while i_1 < <bool as Exhaustive>::Num::USIZE {
-                let mut i_2 = 0;
-                while i_2 < <TriState as Exhaustive>::Num::USIZE {
-                    let ptr = all.as_slice()[i].get();
-                    unsafe {
-                        *ptr = MaybeUninit::new(Self(
-                            <() as Exhaustive>::ALL.as_slice()[i_0],
-                            <bool as Exhaustive>::ALL.as_slice()[i_1],
-                            <TriState as Exhaustive>::ALL.as_slice()[i_2],
-                        ));
-                    }
-                    i += 1;
-
-                    i_2 += 1;
-                }
-                i_1 += 1;
-            }
-            i_0 += 1;
-        }
-
-        unsafe { const_transmute(all) }
-    };
-}
-
-#[derive(Debug, Clone, Copy)]
-enum EnumFields {
-    Foo(bool, bool),
-    Bar(TriState),
-    Baz { hi: bool, yo: bool },
-}
-
-unsafe impl Exhaustive for EnumFields {
-    type Num = Sum<
-        Sum<
-            Prod<<bool as Exhaustive>::Num, <bool as Exhaustive>::Num>,
-            <TriState as Exhaustive>::Num,
-        >,
-        Prod<<bool as Exhaustive>::Num, <bool as Exhaustive>::Num>,
-    >;
-
-    const ALL: GenericArray<Self, Self::Num> = {
-        use {
-            ::const_exhaustive::{
-                __util::const_transmute, generic_array::GenericArray, typenum::Unsigned,
-            },
-            ::core::{cell::UnsafeCell, mem::MaybeUninit},
-        };
-
-        let all: GenericArray<UnsafeCell<MaybeUninit<Self>>, Self::Num> =
-            unsafe { MaybeUninit::uninit().assume_init() };
-
-        let mut i = 0;
-
-        // Foo
-        let mut i_0 = 0;
-        while i_0 < <bool as Exhaustive>::Num::USIZE {
-            let mut i_1 = 0;
-            while i_1 < <bool as Exhaustive>::Num::USIZE {
-                let ptr = all.as_slice()[i].get();
-                unsafe {
-                    *ptr = MaybeUninit::new(Self::Foo(
-                        <bool as Exhaustive>::ALL.as_slice()[i_0],
-                        <bool as Exhaustive>::ALL.as_slice()[i_1],
-                    ));
-                }
-                i += 1;
-
-                i_1 += 1;
-            }
-            i_0 += 1;
-        }
-
-        // Bar
-        let mut i_0 = 0;
-        while i_0 < <TriState as Exhaustive>::Num::USIZE {
-            let ptr = all.as_slice()[i].get();
-            unsafe {
-                *ptr = MaybeUninit::new(Self::Bar(<TriState as Exhaustive>::ALL.as_slice()[i_0]));
-            }
-            i += 1;
-
-            i_0 += 1;
-        }
-
-        // Baz
-        let mut i_hi = 0;
-        while i_hi < <bool as Exhaustive>::Num::USIZE {
-            let mut i_yo = 0;
-            while i_yo < <bool as Exhaustive>::Num::USIZE {
-                let ptr = all.as_slice()[i].get();
-                unsafe {
-                    *ptr = MaybeUninit::new(Self::Baz {
-                        hi: <bool as Exhaustive>::ALL.as_slice()[i_hi],
-                        yo: <bool as Exhaustive>::ALL.as_slice()[i_yo],
-                    });
-                }
-                i += 1;
-
-                i_yo += 1;
-            }
-            i_hi += 1;
-        }
-
-        unsafe { const_transmute(all) }
-    };
-}
-
-#[derive(Debug, Clone, Copy, Exhaustive)]
-struct Testing {
-    a: bool,
-    b: TriState,
-}
-
-#[derive(Debug, Clone, Copy, Exhaustive)]
-struct Other;
-
-#[derive(Debug, Clone, Copy, Exhaustive)]
-struct Other2(bool, bool, TriState);
-
-#[derive(Debug, Clone, Copy, Exhaustive)]
-enum Thingy {
-    A,
-    B(bool),
-    C(bool, TriState),
-    D { a: bool, b: Other },
-}
-
-#[derive(Debug, Clone, Copy, Exhaustive)]
-enum Uninhabited {}
+use {const_exhaustive::Exhaustive, std::convert::Infallible};
 
 #[test]
-fn foo() {
-    dbg!(StructNamedFields::ALL);
-    dbg!(StructUnnamedFields::ALL);
-    dbg!(EnumFields::ALL);
-    dbg!(Testing::ALL);
-    dbg!(Other::ALL);
-    dbg!(Other2::ALL);
-    dbg!(Thingy::ALL);
+fn primitives() {
+    assert_eq!(0, Infallible::ALL.len());
+    assert_eq!([()], <() as Exhaustive>::ALL.as_slice());
+    assert_eq!([false, true], bool::ALL.as_slice());
+}
+
+#[test]
+fn unit_struct() {
+    #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
+    struct Unit;
+
+    assert_eq!([Unit], Unit::ALL.as_slice());
+}
+
+#[test]
+fn tuple_struct() {
+    #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
+    struct TupleUnit(());
+
+    assert_eq!([TupleUnit(())], TupleUnit::ALL.as_slice());
+
+    #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
+    struct TupleUnits((), (), ());
+
+    assert_eq!([TupleUnits((), (), ())], TupleUnits::ALL.as_slice());
+
+    #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
+    struct TupleBool(bool);
+
+    assert_eq!(
+        [TupleBool(false), TupleBool(true)],
+        TupleBool::ALL.as_slice()
+    );
+
+    #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
+    struct TupleBools(bool, bool, bool);
+
+    assert_eq!(
+        [
+            TupleBools(false, false, false),
+            TupleBools(true, false, false),
+            TupleBools(false, true, false),
+            TupleBools(true, true, false),
+            //
+            TupleBools(false, false, true),
+            TupleBools(true, false, true),
+            TupleBools(false, true, true),
+            TupleBools(true, true, true),
+        ],
+        TupleBools::ALL.as_slice()
+    );
+}
+
+#[test]
+fn normal_struct() {
+    #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
+    struct Unit {}
+
+    assert_eq!([Unit {}], Unit::ALL.as_slice());
+
+    #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
+    struct OneField {
+        a: bool,
+    }
+
+    assert_eq!(
+        [OneField { a: false }, OneField { a: true }],
+        OneField::ALL.as_slice()
+    );
+
+    #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
+    struct ManyFields {
+        a: (),
+        b: bool,
+        c: bool,
+    }
+
+    assert_eq!(
+        [
+            ManyFields {
+                a: (),
+                b: false,
+                c: false
+            },
+            ManyFields {
+                a: (),
+                b: true,
+                c: false,
+            },
+            ManyFields {
+                a: (),
+                b: false,
+                c: true
+            },
+            ManyFields {
+                a: (),
+                b: true,
+                c: true
+            }
+        ],
+        ManyFields::ALL.as_slice()
+    );
+}
+
+#[test]
+fn uninhabited() {
+    #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
+    enum Uninhabited {}
+
+    assert_eq!(0, Uninhabited::ALL.len());
+}
+
+#[test]
+fn unit_enum() {
+    #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
+    enum Unit {
+        A,
+    }
+
+    assert_eq!([Unit::A], Unit::ALL.as_slice());
+
+    #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
+    enum Units {
+        A,
+        B,
+        C,
+    }
+
+    assert_eq!([Units::A, Units::B, Units::C], Units::ALL.as_slice());
+}
+
+#[test]
+fn tuple_variants() {
+    #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
+    enum Tuples {
+        A(),
+        B(()),
+        C(bool, bool),
+    }
+
+    assert_eq!(
+        [
+            Tuples::A(),
+            Tuples::B(()),
+            Tuples::C(false, false),
+            Tuples::C(true, false),
+            Tuples::C(false, true),
+            Tuples::C(true, true),
+        ],
+        Tuples::ALL.as_slice()
+    );
+}
+
+#[test]
+fn fielded_variants() {
+    #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
+    enum Fielded {
+        A {},
+        B { foo: () },
+        C { foo: bool, bar: bool },
+    }
+
+    assert_eq!(
+        [
+            Fielded::A {},
+            Fielded::B { foo: () },
+            Fielded::C {
+                foo: false,
+                bar: false,
+            },
+            Fielded::C {
+                foo: true,
+                bar: false,
+            },
+            Fielded::C {
+                foo: false,
+                bar: true,
+            },
+            Fielded::C {
+                foo: true,
+                bar: true,
+            },
+        ],
+        Fielded::ALL.as_slice()
+    );
+}
+
+#[test]
+fn variant_mix() {
+    #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
+    enum Mix {
+        Unit,
+        Tuple(bool),
+        Named { foo: bool },
+    }
+
+    assert_eq!(
+        [
+            Mix::Unit,
+            Mix::Tuple(false),
+            Mix::Tuple(true),
+            Mix::Named { foo: false },
+            Mix::Named { foo: true },
+        ],
+        Mix::ALL.as_slice()
+    );
+}
+
+#[test]
+fn compound() {
+    #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
+    struct BoolWrapper(bool);
+
+    #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
+    enum Compound {
+        A(bool),
+        B(BoolWrapper),
+    }
+
+    assert_eq!(
+        [
+            Compound::A(false),
+            Compound::A(true),
+            Compound::B(BoolWrapper(false)),
+            Compound::B(BoolWrapper(true)),
+        ],
+        Compound::ALL.as_slice()
+    );
+}
+
+#[test]
+fn generic() {
+    // #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
+    // struct Wrapper<T>(T);
+}
+
+mod hygiene {
+    #[test]
+    #[expect(
+        dead_code,
+        reason = "if we're getting dead code warnings, we've succeeded"
+    )]
+    fn hygiene() {
+        // try and cause as many ident conflicts as possible
+
+        #[derive(Debug, Clone, Copy, const_exhaustive::Exhaustive)]
+        struct Exhaustive;
+        #[derive(Debug, Clone, Copy, const_exhaustive::Exhaustive)]
+        struct GenericArray;
+        #[derive(Debug, Clone, Copy, const_exhaustive::Exhaustive)]
+        struct Unsigned;
+        #[derive(Debug, Clone, Copy, const_exhaustive::Exhaustive)]
+        struct Sum;
+        #[derive(Debug, Clone, Copy, const_exhaustive::Exhaustive)]
+        struct Prod;
+        #[derive(Debug, Clone, Copy, const_exhaustive::Exhaustive)]
+        struct UnsafeCell;
+        #[derive(Debug, Clone, Copy, const_exhaustive::Exhaustive)]
+        struct MaybeUninit;
+
+        #[derive(Debug, Clone, Copy, const_exhaustive::Exhaustive)]
+        struct Struct {
+            a: Exhaustive,
+            b: GenericArray,
+            c: Unsigned,
+            d: Sum,
+            e: Prod,
+            f: UnsafeCell,
+            g: MaybeUninit,
+        }
+
+        #[derive(Debug, Clone, Copy, const_exhaustive::Exhaustive)]
+        enum Enum {
+            A(
+                Exhaustive,
+                GenericArray,
+                Unsigned,
+                Sum,
+                Prod,
+                UnsafeCell,
+                MaybeUninit,
+            ),
+            B {
+                a: Exhaustive,
+                b: GenericArray,
+                c: Unsigned,
+                d: Sum,
+                e: Prod,
+                f: UnsafeCell,
+                g: MaybeUninit,
+            },
+        }
+    }
 }
