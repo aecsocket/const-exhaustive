@@ -213,4 +213,5 @@ fn foo() {
     dbg!(StructNamedFields::ALL);
     dbg!(StructUnnamedFields::ALL);
     dbg!(EnumFields::ALL);
+    dbg!(Testing::ALL);
 }

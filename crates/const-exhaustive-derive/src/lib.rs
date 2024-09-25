@@ -5,7 +5,7 @@
 use {
     proc_macro2::{Span, TokenStream},
     quote::quote,
-    syn::{Data, DeriveInput, Fields, FieldsNamed, Ident, Result, parse_macro_input},
+    syn::{Data, DeriveInput, Field, Fields, FieldsNamed, Ident, Result, parse_macro_input},
 };
 
 #[proc_macro_derive(Exhaustive)]
@@ -38,11 +38,11 @@ fn derive(input: &DeriveInput) -> Result<TokenStream> {
         },
         _ => todo!(),
     };
-    let all = make_all(fields);
+    let ExhaustiveImpl { num, all } = make_all(fields);
 
     Ok(quote! {
         unsafe impl #impl_generics ::const_exhaustive::Exhaustive for #name #type_generics #where_clause {
-            type Num = ::const_exhaustive::typenum::UTerm;
+            type Num = #num;
 
             const ALL: ::const_exhaustive::generic_array::GenericArray<Self, Self::Num> = {
                 #all
@@ -51,8 +51,19 @@ fn derive(input: &DeriveInput) -> Result<TokenStream> {
     })
 }
 
-fn make_all(fields: &FieldsNamed) -> TokenStream {
-    let construct = fields
+struct ExhaustiveImpl {
+    num: TokenStream,
+    all: TokenStream,
+}
+
+fn make_all(fields: &FieldsNamed) -> ExhaustiveImpl {
+    struct FieldInfo<'a> {
+        field: &'a Field,
+        ident: &'a Ident,
+        index: Ident,
+    }
+
+    let fields = fields
         .named
         .iter()
         .map(|field| {
@@ -61,14 +72,44 @@ fn make_all(fields: &FieldsNamed) -> TokenStream {
                 .as_ref()
                 .expect("named field must have an ident");
             let index = Ident::new(&format!("i_{ident}"), Span::call_site());
-            let ty = &field.ty;
-            quote! {
-                #ident: <#ty as Exhaustive>::ALL.as_slice()[#index]
+            FieldInfo {
+                field,
+                ident,
+                index,
             }
         })
         .collect::<Vec<_>>();
 
-    let body = fields.named.iter().fold(
+    let num = fields.iter().fold(
+        quote! { ::const_exhaustive::typenum::U1 },
+        |acc, FieldInfo { field, .. }| {
+            let ty = &field.ty;
+            quote! {
+                ::const_exhaustive::typenum::operator_aliases::Prod<
+                    #acc,
+                    <#ty as ::const_exhaustive::Exhaustive>::Num,
+                >
+            }
+        },
+    );
+
+    let construct = fields
+        .iter()
+        .map(
+            |FieldInfo {
+                 field,
+                 ident,
+                 index,
+             }| {
+                let ty = &field.ty;
+                quote! {
+                    #ident: <#ty as Exhaustive>::ALL.as_slice()[#index]
+                }
+            },
+        )
+        .collect::<Vec<_>>();
+
+    let body = fields.iter().fold(
         quote! {
             let ptr = all.as_slice()[i].get();
             unsafe {
@@ -76,16 +117,16 @@ fn make_all(fields: &FieldsNamed) -> TokenStream {
             };
             i += 1;
         },
-        |acc, field| {
-            let ident = field
-                .ident
-                .as_ref()
-                .expect("named field must have an ident");
-            let index = Ident::new(&format!("i_{ident}"), Span::call_site());
+        |acc,
+         FieldInfo {
+             field,
+             ident,
+             index,
+         }| {
             let ty = &field.ty;
             quote! {
                 let mut #index = 0usize;
-                while (#index) < <#ty as Exhaustive>::Num::USIZE {
+                while #index < <#ty as Exhaustive>::Num::USIZE {
                     #acc
                     #index += 1;
                 };
@@ -93,7 +134,7 @@ fn make_all(fields: &FieldsNamed) -> TokenStream {
         },
     );
 
-    quote! {
+    let all = quote! {
         use {
             ::const_exhaustive::{
                 __util::const_transmute, generic_array::GenericArray, typenum::Unsigned, Exhaustive,
@@ -101,7 +142,7 @@ fn make_all(fields: &FieldsNamed) -> TokenStream {
             ::core::{cell::UnsafeCell, mem::MaybeUninit},
         };
 
-        let all = GenericArray<UnsafeCell<MaybeUninit<Self>>, Self::Num> =
+        let all: GenericArray<UnsafeCell<MaybeUninit<Self>>, Self::Num> =
             unsafe { MaybeUninit::uninit().assume_init() };
 
         let mut i = 0;
@@ -109,5 +150,7 @@ fn make_all(fields: &FieldsNamed) -> TokenStream {
         #body
 
         unsafe { const_transmute(all) }
-    }
+    };
+
+    ExhaustiveImpl { num, all }
 }
