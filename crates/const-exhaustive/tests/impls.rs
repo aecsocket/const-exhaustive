@@ -1,11 +1,46 @@
-//!
+#![expect(missing_docs, reason = "test module")]
 
-use {const_exhaustive::Exhaustive, core::convert::Infallible};
+use {
+    const_exhaustive::Exhaustive,
+    core::convert::Infallible,
+    std::{
+        any::Any,
+        marker::{PhantomData, PhantomPinned},
+    },
+};
 
 #[test]
-fn primitives() {
-    assert_eq!(0, Infallible::ALL.len());
+fn uninhabited() {
+    let infallibles: &[Infallible] = &[];
+    assert_eq!(infallibles, Infallible::ALL.as_slice());
+}
+
+#[test]
+fn unit() {
     assert_eq!([()], <()>::ALL.as_slice());
+}
+
+#[test]
+fn phantom_pinned() {
+    assert_eq!([PhantomPinned], PhantomPinned::ALL.as_slice());
+}
+
+#[test]
+fn phantom_data() {
+    struct WithLifetime<'a> {
+        _value: &'a i32,
+    }
+
+    assert_eq!([PhantomData], PhantomData::<i32>::ALL.as_slice()); // sized
+    assert_eq!([PhantomData], PhantomData::<dyn Any>::ALL.as_slice()); // unsized
+    assert_eq!(
+        [PhantomData],
+        PhantomData::<WithLifetime<'static>>::ALL.as_slice()
+    );
+}
+
+#[test]
+fn bools() {
     assert_eq!([false, true], bool::ALL.as_slice());
 }
 

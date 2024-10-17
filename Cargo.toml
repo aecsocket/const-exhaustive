@@ -10,7 +10,7 @@ keywords = ["const"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/aecsocket/const-exhaustive"
 rust-version = "1.82.0"
-version = "0.1.0"
+version = "0.1.1"
 
 [workspace.lints.rust]
 missing_docs = "warn"
@@ -26,6 +26,6 @@ const-exhaustive-derive = { version = "0.1.0", path = "crates/const-exhaustive-d
 generic-array = "1.1.0"
 typenum = "1.17.0"
 
-proc-macro2 = "1.0.86"
+proc-macro2 = "1.0.88"
 quote = "1.0.37"
-syn = "2.0.77"
+syn = "2.0.79"

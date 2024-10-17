@@ -1,4 +1,4 @@
-//!
+#![expect(missing_docs, reason = "test module")]
 
 use const_exhaustive::Exhaustive;
 
@@ -224,7 +224,7 @@ mod hygiene {
         dead_code,
         reason = "if we're getting dead code warnings, we've succeeded"
     )]
-    fn test() {
+    fn hygiene() {
         // try and cause as many ident conflicts as possible
 
         #[derive(Debug, Clone, Copy, const_exhaustive::Exhaustive)]

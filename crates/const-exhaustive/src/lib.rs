@@ -6,11 +6,12 @@ use {
     core::{
         cell::UnsafeCell,
         convert::Infallible,
+        marker::{PhantomData, PhantomPinned},
         mem::{self, ManuallyDrop, MaybeUninit},
         ops::Mul,
     },
     generic_array::{ArrayLength, GenericArray},
-    typenum::{U0, U1, U2, Unsigned},
+    typenum::{Unsigned, U0, U1, U2},
 };
 
 /// All values of this type are known at compile time.
@@ -24,7 +25,7 @@ use {
 ///
 /// By default, this is implemented for:
 /// - [`Infallible`] with 0 values
-/// - [`()`][unit] with 1 value
+/// - [`()`][unit], [`PhantomPinned`], [`PhantomData`] with 1 value
 /// - [`bool`] with 2 values
 ///
 /// This trait is not implemented for any numerical types. Although there are
@@ -191,6 +192,19 @@ unsafe impl Exhaustive for () {
     type Num = U1;
 
     const ALL: GenericArray<Self, Self::Num> = GenericArray::from_array([()]);
+}
+
+unsafe impl Exhaustive for PhantomPinned {
+    type Num = U1;
+
+    const ALL: GenericArray<Self, Self::Num> = GenericArray::from_array([Self]);
+}
+
+// TODO get rid of this 'static?
+unsafe impl<T: ?Sized + 'static> Exhaustive for PhantomData<T> {
+    type Num = U1;
+
+    const ALL: GenericArray<Self, Self::Num> = GenericArray::from_array([Self]);
 }
 
 unsafe impl Exhaustive for bool {
