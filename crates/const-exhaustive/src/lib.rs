@@ -94,7 +94,7 @@ use {
 ///
 /// PRs welcome!
 #[diagnostic::on_unimplemented(
-    message = "`{Self}` is not `Exhaustive`",
+    message = "not all values of `{Self}` are known statically",
     label = "not exhaustive",
     note = "consider annotating `{Self}` with `#[derive(Exhaustive)]`"
 )]
@@ -200,7 +200,6 @@ unsafe impl Exhaustive for PhantomPinned {
     const ALL: GenericArray<Self, Self::Num> = GenericArray::from_array([Self]);
 }
 
-// TODO get rid of this 'static?
 unsafe impl<T: ?Sized + 'static> Exhaustive for PhantomData<T> {
     type Num = U1;
 
