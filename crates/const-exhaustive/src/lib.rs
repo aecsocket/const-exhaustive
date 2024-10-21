@@ -11,7 +11,7 @@ use {
         ops::Mul,
     },
     generic_array::{ArrayLength, GenericArray},
-    typenum::{Unsigned, U0, U1, U2},
+    typenum::{U0, U1, U2, Unsigned},
 };
 
 /// All values of this type are known at compile time.
@@ -219,6 +219,7 @@ unsafe impl Exhaustive for bool {
 // https://play.rust-lang.org/?version=nightly&mode=debug&edition=2021&gist=3932fdb89b5b8f4e757cb62b43023e01
 
 // must be `pub` since it is used by the derive macro
+// we can't just use `core::mem::transmute` because of <https://github.com/rust-lang/rust/issues/61956>
 #[doc(hidden)]
 pub const unsafe fn const_transmute<A, B>(a: A) -> B {
     #[repr(C)]

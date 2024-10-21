@@ -9,7 +9,7 @@ edition = "2021"
 keywords = ["const"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/aecsocket/const-exhaustive"
-rust-version = "1.82.0"
+rust-version = "1.83.0"
 version = "0.1.1"
 
 [workspace.lints.rust]
