@@ -49,7 +49,12 @@ pub use {
 /// either:
 /// - define an enum with each value explicitly
 /// - write a wrapper type which ensures that the value within it is always in
-///   range, then `unsafe impl` [`Exhaustive`] on the wrapper
+///   range, then `unsafe impl Exhaustive` on the wrapper
+///
+/// # Safety
+///
+/// All possible values of this type, as representable in memory, must be
+/// present in [`Exhaustive::ALL`].
 ///
 /// # Examples
 ///
@@ -88,10 +93,47 @@ pub use {
 /// );
 /// ```
 ///
-/// # Safety
+/// Implementing [`Exhaustive`] manually:
 ///
-/// All possible values of this type, as representable in memory, must be
-/// present in [`Exhaustive::ALL`].
+/// ```
+/// use const_exhaustive::{Exhaustive, generic_array::GenericArray, typenum};
+///
+/// // if you were implementing this for real,
+/// // you should probably use `NonZero<u8>` for niche optimization;
+/// // but this is a simplified example
+/// #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+/// struct UintUpTo4(u8);
+///
+/// impl UintUpTo4 {
+///     #[must_use]
+///     pub const fn new(n: u8) -> Option<Self> {
+///         if n < 4 { Some(Self(n)) } else { None }
+///     }
+///
+///     #[must_use]
+///     pub const fn get(self) -> u8 {
+///         self.0
+///     }
+/// }
+///
+/// unsafe impl Exhaustive for UintUpTo4 {
+///     type Num = typenum::U4;
+///
+///     const ALL: GenericArray<Self, Self::Num> =
+///         GenericArray::from_array([Self(0), Self(1), Self(2), Self(3)]);
+/// }
+///
+/// assert_eq!(
+///     [
+///         None,
+///         Some(UintUpTo4(0)),
+///         Some(UintUpTo4(1)),
+///         Some(UintUpTo4(2)),
+///         Some(UintUpTo4(3)),
+///     ],
+///     Option::<UintUpTo4>::ALL.as_slice()
+/// );
+/// ```
 #[diagnostic::on_unimplemented(
     message = "all values of `{Self}` are not known statically",
     label = "not exhaustive",
