@@ -15,6 +15,9 @@ use {
 ///
 /// This type must be [`Clone`] and [`Copy`], and all types contained within
 /// it must also be `Exhaustive`.
+///
+/// On `union`s, this derive macro is not supported - you must implement
+/// `Exhaustive` yourself.
 #[proc_macro_derive(Exhaustive)]
 pub fn exhaustive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -23,8 +26,50 @@ pub fn exhaustive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         .into()
 }
 
+macro_rules! shortcuts {
+    {
+        struct $shortcuts_name:ident {
+            $(
+                $($item_path:ident::)* : $item_name:ident
+            ),*
+        }
+    } => {
+        #[allow(non_snake_case, reason = "shortcut items")]
+        struct $shortcuts_name {
+            $(
+                $item_name: TokenStream,
+            )*
+        }
+
+        impl Default for $shortcuts_name {
+            fn default() -> Self {
+                Self {
+                    $(
+                        $item_name: quote! { ::$($item_path::)*$item_name },
+                    )*
+                }
+            }
+        }
+    };
+}
+
+shortcuts! {
+    struct Shortcuts {
+        core::cell:::UnsafeCell,
+        core::mem:::MaybeUninit,
+        const_exhaustive:::Exhaustive,
+        const_exhaustive:::const_transmute,
+        const_exhaustive::typenum:::U0,
+        const_exhaustive::typenum:::U1,
+        const_exhaustive::typenum:::Unsigned,
+        const_exhaustive::typenum::operator_aliases:::Sum,
+        const_exhaustive::typenum::operator_aliases:::Prod,
+        const_exhaustive::generic_array:::GenericArray
+    }
+}
+
 fn derive(input: &DeriveInput) -> Result<TokenStream> {
-    let Exhaustive = quote! { ::const_exhaustive::Exhaustive };
+    let Shortcuts { Exhaustive, .. } = Shortcuts::default();
 
     let name = &input.ident;
     let generics = &input.generics;
@@ -64,13 +109,7 @@ fn make_for_enum(data: &DataEnum) -> ExhaustiveImpl {
         values: TokenStream,
     }
 
-    let [U0, Sum] = [
-        quote! { ::const_exhaustive::typenum::U0 },
-        quote! {
-            ::const_exhaustive::typenum::operator_aliases::Sum
-        },
-        //
-    ];
+    let Shortcuts { U0, Sum, .. } = Shortcuts::default();
 
     let variants = data
         .variants
@@ -120,10 +159,21 @@ fn make_for_fields(fields: &Fields, construct_ident: impl ToTokens) -> Exhaustiv
     }
 
     fn get_value(ty: impl ToTokens, index: impl ToTokens) -> TokenStream {
+        let Shortcuts { Exhaustive, .. } = Shortcuts::default();
+
         quote! {
-            <#ty as ::const_exhaustive::Exhaustive>::ALL.as_slice()[#index]
+            <#ty as #Exhaustive>::ALL.as_slice()[#index]
         }
     }
+
+    let Shortcuts {
+        MaybeUninit,
+        Exhaustive,
+        U1,
+        Unsigned,
+        Prod,
+        ..
+    } = Shortcuts::default();
 
     let (fields, construct) = match fields {
         Fields::Unit => (Vec::<FieldInfo>::new(), quote! {}),
@@ -174,27 +224,22 @@ fn make_for_fields(fields: &Fields, construct_ident: impl ToTokens) -> Exhaustiv
         }
     };
 
-    let num = fields.iter().fold(
-        quote! { ::const_exhaustive::typenum::U1 },
-        |acc, FieldInfo { field, .. }| {
+    let num = fields
+        .iter()
+        .fold(quote! { #U1 }, |acc, FieldInfo { field, .. }| {
             let ty = &field.ty;
             quote! {
-                ::const_exhaustive::typenum::operator_aliases::Prod<
-                    #acc,
-                    <#ty as ::const_exhaustive::Exhaustive>::Num,
-                >
+                #Prod<#acc, <#ty as #Exhaustive>::Num>
             }
-        },
-    );
+        });
 
     // rfold here so that the value order matches the tuple value order
     // e.g. we generate i_0 { i_1 { i_2 } }
     //       instead of i_2 { i_1 { i_0 } }
     let values = fields.iter().rfold(
         quote! {
-            let ptr = all.as_slice()[i].get();
             unsafe {
-                *ptr = ::core::mem::MaybeUninit::new(#construct_ident #construct);
+                *all.as_slice()[i].get() = #MaybeUninit::new(#construct_ident #construct);
             };
             i += 1;
         },
@@ -202,7 +247,7 @@ fn make_for_fields(fields: &Fields, construct_ident: impl ToTokens) -> Exhaustiv
             let ty = &field.ty;
             quote! {
                 let mut #index = 0usize;
-                while #index < <<#ty as ::const_exhaustive::Exhaustive>::Num as ::const_exhaustive::typenum::Unsigned>::USIZE {
+                while #index < <<#ty as #Exhaustive>::Num as #Unsigned>::USIZE {
                     #acc
                     #index += 1;
                 };
@@ -214,16 +259,20 @@ fn make_for_fields(fields: &Fields, construct_ident: impl ToTokens) -> Exhaustiv
 }
 
 fn impl_body(num: impl ToTokens, values: impl ToTokens) -> TokenStream {
+    let Shortcuts {
+        UnsafeCell,
+        MaybeUninit,
+        GenericArray,
+        const_transmute,
+        ..
+    } = Shortcuts::default();
+
     quote! {
         type Num = #num;
 
-        const ALL: ::const_exhaustive::generic_array::GenericArray<Self, Self::Num> = {
-            let all: ::const_exhaustive::generic_array::GenericArray<
-                ::core::cell::UnsafeCell<
-                    ::core::mem::MaybeUninit<Self>
-                >, Self::Num
-            > = unsafe {
-                ::core::mem::MaybeUninit::uninit().assume_init()
+        const ALL: #GenericArray<Self, Self::Num> = {
+            let all: #GenericArray<#UnsafeCell<#MaybeUninit<Self>>, Self::Num> = unsafe {
+                #MaybeUninit::uninit().assume_init()
             };
 
             let mut i = 0;
@@ -231,7 +280,7 @@ fn impl_body(num: impl ToTokens, values: impl ToTokens) -> TokenStream {
             #values
 
             unsafe {
-                ::const_exhaustive::const_transmute(all)
+                #const_transmute(all)
             }
         };
     }
