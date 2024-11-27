@@ -146,7 +146,45 @@ fn tuples() {
 /*
 #[test]
 fn generic() {
-    #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
-    struct Wrapper<T>(T);
+    #[derive(Debug, Clone, Copy, PartialEq)]
+    struct Wrapper<T>(T)
+    where
+        T: Exhaustive;
+
+    unsafe impl<T> ::const_exhaustive::Exhaustive for Wrapper<T>
+    where
+        T: Exhaustive,
+        ::const_exhaustive::typenum::U1: Mul<<T as Exhaustive>::Num>,
+        ::const_exhaustive::typenum::operator_aliases::Prod<
+            ::const_exhaustive::typenum::U1,
+            <T as ::const_exhaustive::Exhaustive>::Num,
+        >: ArrayLength<ArrayType<Self>: Copy>,
+    {
+        type Num = ::const_exhaustive::typenum::operator_aliases::Prod<
+            ::const_exhaustive::typenum::U1,
+            <T as ::const_exhaustive::Exhaustive>::Num,
+        >;
+
+        const ALL: ::const_exhaustive::generic_array::GenericArray<Self, Self::Num> = {
+            let all: ::const_exhaustive::generic_array::GenericArray<
+                ::core::cell::UnsafeCell<::core::mem::MaybeUninit<Self>>,
+                Self::Num,
+            > = unsafe { ::core::mem::MaybeUninit::uninit().assume_init() };
+            let mut i = 0;
+            let mut i_0 = 0usize;
+            while i_0< <<T as ::const_exhaustive::Exhaustive> ::Num as ::const_exhaustive::typenum::Unsigned> ::USIZE {
+                unsafe {
+                    *all.as_slice()[i].get() =  ::core::mem::MaybeUninit::new(Self(<T as ::const_exhaustive::Exhaustive> ::ALL.as_slice()[i_0]));
+                };
+                i+=1;
+                i_0+=1;
+            };
+            unsafe { ::const_exhaustive::const_transmute(all) }
+        };
+    }
+
+    assert_all::<Wrapper<Infallible>>([]);
+    assert_all([Wrapper(())]);
+    assert_all([Wrapper(false), Wrapper(true)]);
 }
- */
+*/
