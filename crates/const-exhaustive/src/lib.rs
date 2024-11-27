@@ -89,17 +89,8 @@ pub use {
 ///
 /// # Safety
 ///
-/// All possible values of this type must be present in [`Exhaustive::ALL`].
-///
-/// # Limitations
-///
-/// These are technically possible, but have not been implemented yet:
-/// - deriving on a type with generics
-///   - requires extra `where` bounds which are hard to create
-///   - you can still technically do this, but requires more explicit `where`
-///     bounds
-///
-/// PRs welcome!
+/// All possible values of this type, as representable in memory, must be
+/// present in [`Exhaustive::ALL`].
 #[diagnostic::on_unimplemented(
     message = "all values of `{Self}` are not known statically",
     label = "not exhaustive",

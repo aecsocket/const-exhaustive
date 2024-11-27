@@ -116,28 +116,31 @@ fn enum_uninhabited() {
 }
 
 #[test]
-fn enum_unit() {
+fn enum_unit_single() {
     #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
-    enum Unit {
+    enum Dummy {
         A,
     }
 
-    assert_eq!([Unit::A], Unit::ALL.as_slice());
+    assert_eq!([Dummy::A], Dummy::ALL.as_slice());
+}
 
+#[test]
+fn enum_unit_many() {
     #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
-    enum Units {
+    enum Dummy {
         A,
         B,
         C,
     }
 
-    assert_eq!([Units::A, Units::B, Units::C], Units::ALL.as_slice());
+    assert_eq!([Dummy::A, Dummy::B, Dummy::C], Dummy::ALL.as_slice());
 }
 
 #[test]
-fn tuple_variants() {
+fn enum_tuple_variants() {
     #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
-    enum Tuples {
+    enum Dummy {
         A(),
         B(()),
         C(bool, bool),
@@ -145,21 +148,21 @@ fn tuple_variants() {
 
     assert_eq!(
         [
-            Tuples::A(),
-            Tuples::B(()),
-            Tuples::C(false, false),
-            Tuples::C(false, true),
-            Tuples::C(true, false),
-            Tuples::C(true, true),
+            Dummy::A(),
+            Dummy::B(()),
+            Dummy::C(false, false),
+            Dummy::C(false, true),
+            Dummy::C(true, false),
+            Dummy::C(true, true),
         ],
-        Tuples::ALL.as_slice()
+        Dummy::ALL.as_slice()
     );
 }
 
 #[test]
-fn fielded_variants() {
+fn enum_named_field_variants() {
     #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
-    enum Fielded {
+    enum Dummy {
         A {},
         B { foo: () },
         C { foo: bool, bar: bool },
@@ -167,33 +170,33 @@ fn fielded_variants() {
 
     assert_eq!(
         [
-            Fielded::A {},
-            Fielded::B { foo: () },
-            Fielded::C {
+            Dummy::A {},
+            Dummy::B { foo: () },
+            Dummy::C {
                 foo: false,
                 bar: false,
             },
-            Fielded::C {
+            Dummy::C {
                 foo: false,
                 bar: true,
             },
-            Fielded::C {
+            Dummy::C {
                 foo: true,
                 bar: false,
             },
-            Fielded::C {
+            Dummy::C {
                 foo: true,
                 bar: true,
             },
         ],
-        Fielded::ALL.as_slice()
+        Dummy::ALL.as_slice()
     );
 }
 
 #[test]
-fn variant_mix() {
+fn enum_variant_mix() {
     #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
-    enum Mix {
+    enum Dummy {
         Unit,
         Tuple(bool),
         Named { foo: bool },
@@ -201,13 +204,13 @@ fn variant_mix() {
 
     assert_eq!(
         [
-            Mix::Unit,
-            Mix::Tuple(false),
-            Mix::Tuple(true),
-            Mix::Named { foo: false },
-            Mix::Named { foo: true },
+            Dummy::Unit,
+            Dummy::Tuple(false),
+            Dummy::Tuple(true),
+            Dummy::Named { foo: false },
+            Dummy::Named { foo: true },
         ],
-        Mix::ALL.as_slice()
+        Dummy::ALL.as_slice()
     );
 }
 
