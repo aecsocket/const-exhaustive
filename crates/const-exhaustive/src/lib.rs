@@ -2,9 +2,10 @@
 #![doc = include_str!("../../../README.md")]
 #![no_std]
 
-mod util;
+mod array;
 
 use {
+    array::concat,
     const_default::ConstDefault,
     core::{
         cell::UnsafeCell,
@@ -218,31 +219,14 @@ unsafe impl Exhaustive for bool {
 
 unsafe impl<T: Exhaustive> Exhaustive for Option<T>
 where
-    T::Num: Add<U1, Output: ArrayLength<ArrayType<Self>: Copy>>,
+    U1: Add<T::Num, Output: ArrayLength<ArrayType<Self>: Copy>>,
 {
-    type Num = Sum<T::Num, U1>;
+    type Num = Sum<U1, T::Num>;
 
-    const ALL: GenericArray<Self, Self::Num> = {
-        let all: GenericArray<UnsafeCell<MaybeUninit<Self>>, Self::Num> = unsafe {
-            #[expect(clippy::uninit_assumed_init, reason = "same layout as an array")]
-            MaybeUninit::uninit().assume_init()
-        };
-
-        unsafe {
-            *all.as_slice()[0].get() = MaybeUninit::new(None);
-        }
-
-        let mut i = 0;
-        while i < T::Num::USIZE {
-            let value = T::ALL.as_slice()[i];
-            unsafe {
-                *all.as_slice()[1 + i].get() = MaybeUninit::new(Some(value));
-            }
-            i += 1;
-        }
-
-        unsafe { const_transmute(all) }
-    };
+    const ALL: GenericArray<Self, Self::Num> = concat::<_, U1, T::Num>(
+        GenericArray::from_array([None]),
+        map!(T::ALL, |t| -> Self { Some(t) }),
+    );
 }
 
 unsafe impl<T: Exhaustive, E: Exhaustive> Exhaustive for Result<T, E>
@@ -251,32 +235,10 @@ where
 {
     type Num = Sum<T::Num, E::Num>;
 
-    const ALL: GenericArray<Self, Self::Num> = {
-        let all: GenericArray<UnsafeCell<MaybeUninit<Self>>, Self::Num> = unsafe {
-            #[expect(clippy::uninit_assumed_init, reason = "same layout as an array")]
-            MaybeUninit::uninit().assume_init()
-        };
-
-        let mut ok_i = 0;
-        while ok_i < T::Num::USIZE {
-            let value = T::ALL.as_slice()[ok_i];
-            unsafe {
-                *all.as_slice()[ok_i].get() = MaybeUninit::new(Ok(value));
-            }
-            ok_i += 1;
-        }
-
-        let mut err_i = 0;
-        while err_i < E::Num::USIZE {
-            let value = E::ALL.as_slice()[err_i];
-            unsafe {
-                *all.as_slice()[ok_i + err_i].get() = MaybeUninit::new(Err(value));
-            }
-            err_i += 1;
-        }
-
-        unsafe { const_transmute(all) }
-    };
+    const ALL: GenericArray<Self, Self::Num> = concat::<_, T::Num, E::Num>(
+        map!(T::ALL, |t| -> Self { Ok(t) }),
+        map!(E::ALL, |t| -> Self { Err(t) }),
+    );
 }
 
 unsafe impl<T: Exhaustive, const N: usize> Exhaustive for [T; N]
