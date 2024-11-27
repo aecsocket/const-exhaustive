@@ -2,106 +2,121 @@
 
 use const_exhaustive::Exhaustive;
 
-#[test]
-fn tuple_struct() {
-    #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
-    struct TupleUnit(());
-
-    assert_eq!([TupleUnit(())], TupleUnit::ALL.as_slice());
-
-    #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
-    struct TupleUnits((), (), ());
-
-    assert_eq!([TupleUnits((), (), ())], TupleUnits::ALL.as_slice());
-
-    #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
-    struct TupleBool(bool);
-
-    assert_eq!(
-        [TupleBool(false), TupleBool(true)],
-        TupleBool::ALL.as_slice()
-    );
-
-    #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
-    struct TupleBools(bool, bool, bool);
-
-    assert_eq!(
-        [
-            TupleBools(false, false, false),
-            TupleBools(false, false, true),
-            TupleBools(false, true, false),
-            TupleBools(false, true, true),
-            //
-            TupleBools(true, false, false),
-            TupleBools(true, false, true),
-            TupleBools(true, true, false),
-            TupleBools(true, true, true),
-        ],
-        TupleBools::ALL.as_slice()
-    );
+fn assert_all<T: Exhaustive + core::fmt::Debug + PartialEq>(values: impl IntoIterator<Item = T>) {
+    let values = values.into_iter().collect::<Vec<_>>();
+    assert_eq!(values.as_slice(), T::ALL.as_slice());
 }
 
 #[test]
-fn normal_struct() {
+fn unit_struct() {
     #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
-    struct Unit {}
+    struct Dummy;
 
-    assert_eq!([Unit {}], Unit::ALL.as_slice());
+    assert_all([Dummy]);
+}
 
+#[test]
+fn tuple_struct_unit_single() {
     #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
-    struct OneField {
+    struct Dummy(());
+
+    assert_all([Dummy(())]);
+}
+
+#[test]
+fn tuple_struct_unit_many() {
+    #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
+    struct Dummy((), (), ());
+
+    assert_all([Dummy((), (), ())]);
+}
+
+#[test]
+fn tuple_struct_bool_single() {
+    #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
+    struct Dummy(bool);
+
+    assert_all([Dummy(false), Dummy(true)]);
+}
+
+#[test]
+fn tuple_struct_bool_many() {
+    #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
+    struct Dummy(bool, bool, bool);
+
+    assert_all([
+        Dummy(false, false, false),
+        Dummy(false, false, true),
+        Dummy(false, true, false),
+        Dummy(false, true, true),
+        Dummy(true, false, false),
+        Dummy(true, false, true),
+        Dummy(true, true, false),
+        Dummy(true, true, true),
+    ]);
+}
+
+#[test]
+fn named_field_struct_empty() {
+    #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
+    struct Dummy {}
+
+    assert_all([Dummy {}]);
+}
+
+#[test]
+fn named_field_struct_small() {
+    #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
+    struct Dummy {
         a: bool,
     }
 
-    assert_eq!(
-        [OneField { a: false }, OneField { a: true }],
-        OneField::ALL.as_slice()
-    );
+    assert_all([Dummy { a: false }, Dummy { a: true }]);
+}
 
+#[test]
+fn named_field_struct_large() {
     #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
-    struct ManyFields {
+    struct Dummy {
         a: (),
         b: bool,
         c: bool,
     }
 
-    assert_eq!(
-        [
-            ManyFields {
-                a: (),
-                b: false,
-                c: false
-            },
-            ManyFields {
-                a: (),
-                b: false,
-                c: true,
-            },
-            ManyFields {
-                a: (),
-                b: true,
-                c: false,
-            },
-            ManyFields {
-                a: (),
-                b: true,
-                c: true,
-            }
-        ],
-        ManyFields::ALL.as_slice()
-    );
+    assert_all([
+        Dummy {
+            a: (),
+            b: false,
+            c: false,
+        },
+        Dummy {
+            a: (),
+            b: false,
+            c: true,
+        },
+        Dummy {
+            a: (),
+            b: true,
+            c: false,
+        },
+        Dummy {
+            a: (),
+            b: true,
+            c: true,
+        },
+    ]);
 }
 
 #[test]
-fn uninhabited() {
+fn enum_uninhabited() {
     #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
-    enum Uninhabited {}
+    enum Dummy {}
 
-    assert_eq!(0, Uninhabited::ALL.len());
+    assert_all::<Dummy>([]);
 }
 
 #[test]
-fn unit_enum() {
+fn enum_unit() {
     #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
     enum Unit {
         A,

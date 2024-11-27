@@ -2,54 +2,82 @@
 
 use {
     const_exhaustive::Exhaustive,
-    core::convert::Infallible,
-    std::{
+    core::{
         any::Any,
+        convert::Infallible,
         marker::{PhantomData, PhantomPinned},
     },
 };
 
+#[track_caller]
+fn assert_all<T: Exhaustive + core::fmt::Debug + PartialEq>(values: impl IntoIterator<Item = T>) {
+    let values = values.into_iter().collect::<Vec<_>>();
+    assert_eq!(values.as_slice(), T::ALL.as_slice());
+}
+
 #[test]
 fn uninhabited() {
-    let infallibles: &[Infallible] = &[];
-    assert_eq!(infallibles, Infallible::ALL.as_slice());
+    assert_all::<Infallible>([]);
 }
 
 #[test]
 fn unit() {
-    assert_eq!([()], <()>::ALL.as_slice());
+    assert_all([()]);
 }
 
 #[test]
 fn phantom_pinned() {
-    assert_eq!([PhantomPinned], PhantomPinned::ALL.as_slice());
+    assert_all([PhantomPinned]);
 }
 
 #[test]
 fn phantom_data() {
-    struct WithLifetime<'a> {
-        _value: &'a i32,
+    fn with_non_static_lifetime<'a>(_: &'a str) {
+        assert_all([PhantomData::<&'a str>]);
     }
 
-    assert_eq!([PhantomData], PhantomData::<i32>::ALL.as_slice()); // sized
-    assert_eq!([PhantomData], PhantomData::<dyn Any>::ALL.as_slice()); // unsized
-    assert_eq!(
-        [PhantomData],
-        PhantomData::<WithLifetime<'static>>::ALL.as_slice()
-    );
+    assert_all([PhantomData::<u8>]); // sized
+    assert_all([PhantomData::<dyn Any>]); // unsized
+
+    let x = String::new();
+    with_non_static_lifetime(&x);
 }
 
 #[test]
 fn bools() {
-    assert_eq!([false, true], bool::ALL.as_slice());
+    assert_all([false, true]);
 }
 
 #[test]
-fn unit_struct() {
-    #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
-    struct Unit;
+fn options() {
+    assert_all([None::<Infallible>]);
+    assert_all([None, Some(())]);
+    assert_all([None, Some(false), Some(true)]);
+}
 
-    assert_eq!([Unit], Unit::ALL.as_slice());
+#[test]
+fn results() {
+    assert_all::<Result<Infallible, Infallible>>([]);
+    assert_all([Ok::<_, Infallible>(())]);
+    assert_all([Ok::<_, Infallible>(false), Ok(true)]);
+    assert_all([Err::<Infallible, _>(())]);
+    assert_all([Err::<Infallible, _>(false), Err(true)]);
+    assert_all([Ok(()), Err(())]);
+    assert_all([Ok(false), Ok(true), Err(())]);
+    assert_all([Ok(()), Err(false), Err(true)]);
+    assert_all([Ok(false), Ok(true), Err(false), Err(true)]);
+}
+
+#[test]
+fn arrays() {
+    // assert_all::<[Infallible; 0]>([]);
+    // assert_all::<[Infallible; 1]>([]);
+    // assert_all::<[Infallible; 2]>([]);
+    // assert_all::<[(); 0]>([[]]);
+
+    assert_all([[false, false], [false, true], [true, false], [true, true]]);
+
+    // TODO
 }
 
 #[test]
