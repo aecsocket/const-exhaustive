@@ -24,6 +24,8 @@ pub fn exhaustive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 }
 
 fn derive(input: &DeriveInput) -> Result<TokenStream> {
+    let Exhaustive = quote! { ::const_exhaustive::Exhaustive };
+
     let name = &input.ident;
     let generics = &input.generics;
     let (impl_generics, type_generics, where_clause) = generics.split_for_impl();
@@ -41,7 +43,7 @@ fn derive(input: &DeriveInput) -> Result<TokenStream> {
 
     let body = impl_body(num, values);
     Ok(quote! {
-        unsafe impl #impl_generics ::const_exhaustive::Exhaustive for #name #type_generics #where_clause {
+        unsafe impl #impl_generics #Exhaustive for #name #type_generics #where_clause {
             #body
         }
     })
@@ -62,6 +64,14 @@ fn make_for_enum(data: &DataEnum) -> ExhaustiveImpl {
         values: TokenStream,
     }
 
+    let [U0, Sum] = [
+        quote! { ::const_exhaustive::typenum::U0 },
+        quote! {
+            ::const_exhaustive::typenum::operator_aliases::Sum
+        },
+        //
+    ];
+
     let variants = data
         .variants
         .iter()
@@ -73,17 +83,11 @@ fn make_for_enum(data: &DataEnum) -> ExhaustiveImpl {
         })
         .collect::<Vec<_>>();
 
-    let num = variants.iter().fold(
-        quote! { ::const_exhaustive::typenum::U0 },
-        |acc, VariantInfo { num, .. }| {
-            quote! {
-                ::const_exhaustive::typenum::operator_aliases::Sum<
-                    #acc,
-                    #num,
-                >
-            }
-        },
-    );
+    let num = variants
+        .iter()
+        .fold(quote! { #U0 }, |acc, VariantInfo { num, .. }| {
+            quote! { #Sum<#acc, #num> }
+        });
 
     let values = variants
         .iter()
@@ -108,7 +112,7 @@ fn make_for_fields(fields: &Fields, construct_ident: impl ToTokens) -> Exhaustiv
         index: Ident,
     }
 
-    fn require_ident(field: &Field) -> &Ident {
+    const fn require_ident(field: &Field) -> &Ident {
         field
             .ident
             .as_ref()

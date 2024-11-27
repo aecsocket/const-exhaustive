@@ -1,17 +1,22 @@
 #![doc = include_str!("../../../README.md")]
 #![no_std]
 
-pub use {const_exhaustive_derive::Exhaustive, generic_array, typenum};
 use {
+    const_default::ConstDefault,
     core::{
         cell::UnsafeCell,
         convert::Infallible,
         marker::{PhantomData, PhantomPinned},
-        mem::{self, ManuallyDrop, MaybeUninit},
-        ops::Mul,
+        mem::MaybeUninit,
+        ops::{Add, Mul},
     },
-    generic_array::{ArrayLength, GenericArray},
-    typenum::{U0, U1, U2, Unsigned},
+    generic_array::{ArrayLength, GenericArray, arr},
+    typenum::{Const, Pow, Sum, ToUInt, U, U0, U1, U2, Unsigned},
+};
+pub use {
+    const_exhaustive_derive::Exhaustive,
+    generic_array::{self, const_transmute},
+    typenum,
 };
 
 /// All values of this type are known at compile time.
@@ -21,28 +26,21 @@ use {
 ///
 /// If a type implements this trait, it guarantees that there is a finite set
 /// of possible values which may exist for this type, and that they can be
-/// enumerated at compile time.
-///
-/// By default, this is implemented for:
-/// - [`Infallible`] with 0 values
-/// - [`()`][unit], [`PhantomPinned`], [`PhantomData`] with 1 value
-/// - [`bool`] with 2 values
+/// enumerated at compile time. Due to this, an [`Exhaustive`] type may not
+/// store references or pointers, and must be [`Copy`].
 ///
 /// This trait is not implemented for any numerical types. Although there are
 /// practically a finite set of numbers for any given type (because they have to
 /// fit in a finite number of bits, e.g. a [`u8`] must fit in 8 bits), there are
 /// theoretically an infinite number of numbers, which goes against the
-/// intention of this trait.
+/// spirit of this trait.
 ///
 /// However, you may still want to define an exhaustive integer, where values
 /// may only be in a specific range e.g. from 0 to 5. In this case, you can
 /// either:
 /// - define an enum with each value explicitly
 /// - write a wrapper type which ensures that the value within it is always in
-///   range, then implement [`Exhaustive`] on the wrapper
-///
-/// This trait is not possible to implement on more complex types such as
-/// strings or collections, since they are inherently non-exhaustive.
+///   range, then `unsafe impl` [`Exhaustive`] on the wrapper
 ///
 /// # Examples
 ///
@@ -54,6 +52,12 @@ use {
 ///
 /// // there are 2 values of `bool`
 /// assert_eq!([false, true], bool::ALL.as_slice());
+///
+/// // works on types with generics
+/// assert_eq!(
+///     [None, Some(false), Some(true)],
+///     Option::<bool>::ALL.as_slice()
+/// );
 ///
 /// // write your own exhaustive types
 /// #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
@@ -79,14 +83,9 @@ use {
 ///
 /// All possible values of this type must be present in [`Exhaustive::ALL`].
 ///
-/// You should prefer deriving this trait instead of implementing it manually
-/// where possible.
-///
 /// # Limitations
 ///
 /// These are technically possible, but have not been implemented yet:
-/// - `impl<T: Exhaustive, const N: usize> Exhaustive for [T; N]`
-///   - complicated logic for generating each permutation
 /// - deriving on a type with generics
 ///   - requires extra `where` bounds which are hard to create
 ///   - you can still technically do this, but requires more explicit `where`
@@ -94,11 +93,11 @@ use {
 ///
 /// PRs welcome!
 #[diagnostic::on_unimplemented(
-    message = "not all values of `{Self}` are known statically",
+    message = "all values of `{Self}` are not known statically",
     label = "not exhaustive",
     note = "consider annotating `{Self}` with `#[derive(Exhaustive)]`"
 )]
-pub unsafe trait Exhaustive: Sized + Copy + 'static {
+pub unsafe trait Exhaustive: Sized + Copy {
     /// Number of values that may exist of this type.
     ///
     /// Use [`typenum::Unsigned`] to get an actual [`usize`] out of this
@@ -114,6 +113,7 @@ pub unsafe trait Exhaustive: Sized + Copy + 'static {
     /// ```
     type Num: ArrayLength<ArrayType<Self>: Copy>;
 
+    // TODO: explicitly document the ordering guarantees
     /// All values of this type.
     ///
     /// # Order
@@ -200,7 +200,7 @@ unsafe impl Exhaustive for PhantomPinned {
     const ALL: GenericArray<Self, Self::Num> = GenericArray::from_array([Self]);
 }
 
-unsafe impl<T: ?Sized + 'static> Exhaustive for PhantomData<T> {
+unsafe impl<T: ?Sized> Exhaustive for PhantomData<T> {
     type Num = U1;
 
     const ALL: GenericArray<Self, Self::Num> = GenericArray::from_array([Self]);
@@ -212,50 +212,117 @@ unsafe impl Exhaustive for bool {
     const ALL: GenericArray<Self, Self::Num> = GenericArray::from_array([false, true]);
 }
 
-// based on:
-// https://discord.com/channels/273534239310479360/1120124565591425034/1288250308958486579
-// https://discord.com/channels/273534239310479360/1120124565591425034/1288260177652617238
-// https://play.rust-lang.org/?version=nightly&mode=debug&edition=2021&gist=3932fdb89b5b8f4e757cb62b43023e01
-
-// must be `pub` since it is used by the derive macro
-// we can't just use `core::mem::transmute` because of <https://github.com/rust-lang/rust/issues/61956>
-#[doc(hidden)]
-pub const unsafe fn const_transmute<A, B>(a: A) -> B {
-    #[repr(C)]
-    union Union<A, B> {
-        a: ManuallyDrop<A>,
-        b: ManuallyDrop<B>,
-    }
-
-    assert!(
-        mem::size_of::<A>() == mem::size_of::<B>(),
-        "size mismatch for `const_transmute`"
-    );
-
-    let a = ManuallyDrop::new(a);
-    ManuallyDrop::into_inner(Union { a }.b)
-}
-
-/*
-// TODO
-unsafe impl<T: Exhaustive, const N: usize> Exhaustive for [T; N]
+unsafe impl<T: Exhaustive> Exhaustive for Option<T>
 where
-    Const<N>: ToUInt,
-    T::Num: Pow<U<N>, Output: ArrayLength>,
-    <<T::Num as Pow<U<N>>>::Output as ArrayLength>::ArrayType<Self>: Copy,
+    T::Num: Add<U1, Output: ArrayLength<ArrayType<Self>: Copy>>,
 {
-    type Num = <T::Num as Pow<U<N>>>::Output;
+    type Num = Sum<T::Num, U1>;
 
     const ALL: GenericArray<Self, Self::Num> = {
-        let all: GenericArray<UnsafeCell<MaybeUninit<Self>>, Self::Num> =
-            unsafe { MaybeUninit::uninit().assume_init() };
+        let all: GenericArray<UnsafeCell<MaybeUninit<Self>>, Self::Num> = unsafe {
+            #[expect(clippy::uninit_assumed_init, reason = "same layout as an array")]
+            MaybeUninit::uninit().assume_init()
+        };
 
-        todo!();
+        unsafe {
+            *all.as_slice()[0].get() = MaybeUninit::new(None);
+        }
+
+        let mut i = 0;
+        while i < T::Num::USIZE {
+            let value = T::ALL.as_slice()[i];
+            unsafe {
+                *all.as_slice()[i + 1].get() = MaybeUninit::new(Some(value));
+            }
+            i += 1;
+        }
 
         unsafe { const_transmute(all) }
     };
 }
-*/
+
+unsafe impl<T: Exhaustive, E: Exhaustive> Exhaustive for Result<T, E>
+where
+    T::Num: Add<E::Num, Output: ArrayLength<ArrayType<Self>: Copy>>,
+{
+    type Num = Sum<T::Num, E::Num>;
+
+    const ALL: GenericArray<Self, Self::Num> = {
+        let all: GenericArray<UnsafeCell<MaybeUninit<Self>>, Self::Num> = unsafe {
+            #[expect(clippy::uninit_assumed_init, reason = "same layout as an array")]
+            MaybeUninit::uninit().assume_init()
+        };
+
+        let mut ok_i = 0;
+        while ok_i < T::Num::USIZE {
+            let value = T::ALL.as_slice()[ok_i];
+            unsafe {
+                *all.as_slice()[ok_i].get() = MaybeUninit::new(Ok(value));
+            }
+            ok_i += 1;
+        }
+
+        let mut err_i = 0;
+        while err_i < E::Num::USIZE {
+            let value = E::ALL.as_slice()[err_i];
+            unsafe {
+                *all.as_slice()[ok_i + err_i].get() = MaybeUninit::new(Err(value));
+            }
+            err_i += 1;
+        }
+
+        unsafe { const_transmute(all) }
+    };
+}
+
+unsafe impl<T: Exhaustive, const N: usize> Exhaustive for [T; N]
+where
+    Const<N>: ToUInt,
+    <T::Num as ArrayLength>::ArrayType<usize>: ConstDefault,
+    T::Num: Pow<U<N>, Output: ArrayLength<ArrayType<Self>: Copy>>,
+{
+    type Num = <T::Num as Pow<U<N>>>::Output;
+
+    const ALL: GenericArray<Self, Self::Num> = {
+        let all: GenericArray<UnsafeCell<MaybeUninit<Self>>, Self::Num> = unsafe {
+            #[expect(clippy::uninit_assumed_init, reason = "same layout as an array")]
+            MaybeUninit::uninit().assume_init()
+        };
+
+        /*
+        [bool; 3] -> 2^3 = 8
+
+        [--, --, --, --, --, --, --, --]
+
+        [--, --, --, --, --, --, --, [false, false]]
+
+        [--, --, --, --, --, --, [false, true], ..]
+
+        [--, --, --, --, --, [true, false], .., ..]
+
+        */
+
+        let mut all_i = N;
+        while all_i > 0 {
+            all_i -= 1;
+
+            let indices = GenericArray::<usize, T::Num>::const_default();
+
+            let value = todo!();
+
+            unsafe {
+                *all.as_slice()[all_i].get() = MaybeUninit::new(value);
+            }
+        }
+
+        unsafe { const_transmute(all) }
+    };
+}
+
+// based on:
+// https://discord.com/channels/273534239310479360/1120124565591425034/1288250308958486579
+// https://discord.com/channels/273534239310479360/1120124565591425034/1288260177652617238
+// https://play.rust-lang.org/?version=nightly&mode=debug&edition=2021&gist=3932fdb89b5b8f4e757cb62b43023e01
 
 type ProdAll<T> = <T as MulAll>::Output;
 
@@ -266,7 +333,7 @@ pub trait MulAll {
 }
 
 impl MulAll for () {
-    type Output = typenum::U1;
+    type Output = U1;
 }
 
 impl<T: ArrayLength> MulAll for (T,) {
@@ -278,8 +345,7 @@ macro_rules! impl_for_tuples {
         impl<$($t,)* Last> MulAll for ($($t,)* Last,)
         where
             ($($t,)*): MulAll,
-            Last: Mul<<($($t,)*) as MulAll>::Output>,
-            <Last as Mul<<($($t,)*) as MulAll>::Output>>::Output: ArrayLength,
+            Last: Mul<<($($t,)*) as MulAll>::Output, Output: ArrayLength>,
         {
             type Output = <Last as Mul<<($($t,)*) as MulAll>::Output>>::Output;
         }
@@ -297,10 +363,15 @@ macro_rules! impl_for_tuples {
 
                 let mut i = 0;
                 while i < <ProdAll<($($t::Num,)*)>>::USIZE {
-                    #[expect(nonstandard_style, reason = "uppercase variable name")]
+                    #[expect(
+                        nonstandard_style,
+                        reason = "when implementing for tuple arities, we use an uppercase variable name"
+                    )]
                     let [$($t,)*] = split_index(i, [$($t::Num::USIZE,)*]);
                     let tuple = ($($t::ALL.as_slice()[$t],)*);
-                    unsafe { *all.as_slice()[i].get() = MaybeUninit::new(tuple) }
+                    unsafe {
+                        *all.as_slice()[i].get() = MaybeUninit::new(tuple);
+                    }
                     i += 1;
                 }
 
