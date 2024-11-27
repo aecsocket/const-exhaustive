@@ -16,8 +16,13 @@ use {
 /// This type must be [`Clone`] and [`Copy`], and all types contained within
 /// it must also be `Exhaustive`.
 ///
-/// On `union`s, this derive macro is not supported - you must implement
-/// `Exhaustive` yourself.
+/// # Limitations
+///
+/// This macro cannot be used on `union`s.
+///
+/// This macro cannot yet be used on types with type parameters. This is
+/// technically possible, but requires the macro to add more explicit `where`
+/// bounds. Pull requests welcome!
 #[proc_macro_derive(Exhaustive)]
 pub fn exhaustive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
