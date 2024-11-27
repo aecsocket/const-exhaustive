@@ -31,8 +31,11 @@ pub use {
 ///
 /// If a type implements this trait, it guarantees that there is a finite set
 /// of possible values which may exist for this type, and that they can be
-/// enumerated at compile time. Due to this, an [`Exhaustive`] type may not
-/// store references or pointers, and must be [`Copy`].
+/// enumerated at compile time. Due to this, an [`Exhaustive`] type must be
+/// [`Copy`], meaning that this type:
+/// - cannot have [`Drop`] logic
+/// - cannot store references or pointers
+///   - this rules out many complex types such as [`Vec`] and [`String`]
 ///
 /// This trait is not implemented for any numerical types. Although there are
 /// practically a finite set of numbers for any given type (because they have to
@@ -118,13 +121,18 @@ pub unsafe trait Exhaustive: Sized + Copy {
     /// ```
     type Num: ArrayLength<ArrayType<Self>: Copy>;
 
-    // TODO: explicitly document the ordering guarantees
     /// All values of this type.
     ///
     /// # Order
     ///
-    /// Values in this array are guaranteed to be in a specific order, similar
-    /// in concept to binary counting. Some examples:
+    /// Values in this array are guaranteed to be in a stable order. The
+    /// ordering of values is part of the public interface of this trait, so if
+    /// an implementation changes the ordering between versions, this is
+    /// considered a breaking change.
+    ///
+    /// Values should be ordered in a "binary counting" way, if it makes sense
+    /// on this type. Some examples of this ordering are outlined below. All
+    /// first-party implementations of [`Exhaustive`] follow this ordering.
     ///
     /// ## Primitives
     ///
@@ -143,6 +151,20 @@ pub unsafe trait Exhaustive: Sized + Copy {
     /// assert_eq!(
     ///     [(false, false), (false, true), (true, false), (true, true)],
     ///     <(bool, bool)>::ALL.as_slice(),
+    /// );
+    /// ```
+    ///
+    /// ## Arrays
+    ///
+    /// ```
+    /// # use const_exhaustive::Exhaustive;
+    /// // `[T; N]` follows the same ordering as a tuple of `T`s with arity `N`:
+    /// // - `[T; 2]` has the same ordering as `(T, T)`
+    /// // - `[T; 3]` has the same ordering as `(T, T, T)`
+    ///
+    /// assert_eq!(
+    ///     [[false, false], [false, true], [true, false], [true, true]],
+    ///     <[bool; 2]>::ALL.as_slice(),
     /// );
     /// ```
     ///
