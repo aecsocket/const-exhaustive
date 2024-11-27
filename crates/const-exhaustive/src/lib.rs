@@ -1,5 +1,8 @@
+#![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
 #![doc = include_str!("../../../README.md")]
 #![no_std]
+
+mod util;
 
 use {
     const_default::ConstDefault,
@@ -10,8 +13,9 @@ use {
         mem::MaybeUninit,
         ops::{Add, Mul},
     },
-    generic_array::{ArrayLength, GenericArray, arr},
+    generic_array::{ArrayLength, GenericArray},
     typenum::{Const, Pow, Sum, ToUInt, U, U0, U1, U2, Unsigned},
+    variadics_please::all_tuples,
 };
 pub use {
     const_exhaustive_derive::Exhaustive,
@@ -232,7 +236,7 @@ where
         while i < T::Num::USIZE {
             let value = T::ALL.as_slice()[i];
             unsafe {
-                *all.as_slice()[i + 1].get() = MaybeUninit::new(Some(value));
+                *all.as_slice()[1 + i].get() = MaybeUninit::new(Some(value));
             }
             i += 1;
         }
@@ -302,18 +306,18 @@ where
 
         */
 
-        let mut all_i = N;
-        while all_i > 0 {
-            all_i -= 1;
+        // let mut all_i = N;
+        // while all_i > 0 {
+        //     all_i -= 1;
 
-            let indices = GenericArray::<usize, T::Num>::const_default();
+        //     let indices = GenericArray::<usize, T::Num>::const_default();
 
-            let value = todo!();
+        //     let value = todo!();
 
-            unsafe {
-                *all.as_slice()[all_i].get() = MaybeUninit::new(value);
-            }
-        }
+        //     unsafe {
+        //         *all.as_slice()[all_i].get() = MaybeUninit::new(value);
+        //     }
+        // }
 
         unsafe { const_transmute(all) }
     };
@@ -340,35 +344,33 @@ impl<T: ArrayLength> MulAll for (T,) {
     type Output = T;
 }
 
-macro_rules! impl_for_tuples {
-    ($($($t:ident)*,)*) => { $(
-        impl<$($t,)* Last> MulAll for ($($t,)* Last,)
+macro_rules! impl_variadic {
+    ($(#[$meta:meta])* $(($T:ident, $t:ident)),*) => {
+        $(#[$meta])*
+        impl<$($T,)* Last> MulAll for ($($T,)* Last,)
         where
-            ($($t,)*): MulAll,
-            Last: Mul<<($($t,)*) as MulAll>::Output, Output: ArrayLength>,
+            ($($T,)*): MulAll,
+            Last: Mul<<($($T,)*) as MulAll>::Output, Output: ArrayLength>,
         {
-            type Output = <Last as Mul<<($($t,)*) as MulAll>::Output>>::Output;
+            type Output = <Last as Mul<<($($T,)*) as MulAll>::Output>>::Output;
         }
 
-        unsafe impl<$($t: Exhaustive,)*> Exhaustive for ($($t,)*)
+        $(#[$meta])*
+        unsafe impl<$($T: Exhaustive,)*> Exhaustive for ($($T,)*)
         where
-            ($($t::Num,)*): MulAll,
-            <ProdAll<($($t::Num,)*)> as ArrayLength>::ArrayType<Self>: Copy,
+            ($($T::Num,)*): MulAll,
+            <ProdAll<($($T::Num,)*)> as ArrayLength>::ArrayType<Self>: Copy,
         {
-            type Num = ProdAll<($($t::Num,)*)>;
+            type Num = ProdAll<($($T::Num,)*)>;
 
             const ALL: GenericArray<Self, Self::Num> = {
                 let all: GenericArray<UnsafeCell<MaybeUninit<Self>>, Self::Num> =
                     unsafe { MaybeUninit::uninit().assume_init() };
 
                 let mut i = 0;
-                while i < <ProdAll<($($t::Num,)*)>>::USIZE {
-                    #[expect(
-                        nonstandard_style,
-                        reason = "when implementing for tuple arities, we use an uppercase variable name"
-                    )]
-                    let [$($t,)*] = split_index(i, [$($t::Num::USIZE,)*]);
-                    let tuple = ($($t::ALL.as_slice()[$t],)*);
+                while i < <ProdAll<($($T::Num,)*)>>::USIZE {
+                    let [$($t,)*] = split_index(i, [$($T::Num::USIZE,)*]);
+                    let tuple = ($($T::ALL.as_slice()[$t],)*);
                     unsafe {
                         *all.as_slice()[i].get() = MaybeUninit::new(tuple);
                     }
@@ -378,30 +380,17 @@ macro_rules! impl_for_tuples {
                 unsafe { const_transmute(all) }
             };
         }
-    )* }
+    };
 }
 
-impl_for_tuples! {
-                   A,
-                  A B,
-                 A B C,
-                A B C D,
-
-               A B C D E,
-              A B C D E F,
-             A B C D E F G,
-            A B C D E F G H,
-
-           A B C D E F G H I,
-          A B C D E F G H I J,
-         A B C D E F G H I J K,
-        A B C D E F G H I J K L,
-
-       A B C D E F G H I J K L M,
-      A B C D E F G H I J K L M N,
-     A B C D E F G H I J K L M N O,
-    A B C D E F G H I J K L M N O P,
-}
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_variadic,
+    1,
+    15,
+    T,
+    t
+);
 
 const fn split_index<const N: usize>(mut index: usize, lengths: [usize; N]) -> [usize; N] {
     let mut result = [0; N];
