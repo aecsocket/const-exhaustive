@@ -35,7 +35,8 @@ pub use {
 /// [`Copy`], meaning that this type:
 /// - cannot have [`Drop`] logic
 /// - cannot store references or pointers
-///   - this rules out many complex types such as [`Vec`] and [`String`]
+///   - this rules out many complex types, including any heap-allocating types,
+///     such as strings
 ///
 /// This trait is not implemented for any numerical types. Although there are
 /// practically a finite set of numbers for any given type (because they have to
