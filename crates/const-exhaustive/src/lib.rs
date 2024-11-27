@@ -5,7 +5,7 @@
 mod array;
 
 use {
-    array::concat,
+    array::{concat, from_fn, map},
     const_default::ConstDefault,
     core::{
         cell::UnsafeCell,
@@ -223,10 +223,8 @@ where
 {
     type Num = Sum<U1, T::Num>;
 
-    const ALL: GenericArray<Self, Self::Num> = concat::<_, U1, T::Num>(
-        GenericArray::from_array([None]),
-        map!(T::ALL, |t| -> Self { Some(t) }),
-    );
+    const ALL: GenericArray<Self, Self::Num> =
+        concat::<_, U1, T::Num>(GenericArray::from_array([None]), map!(T::ALL, |t| Some(t)));
 }
 
 unsafe impl<T: Exhaustive, E: Exhaustive> Exhaustive for Result<T, E>
@@ -236,53 +234,30 @@ where
     type Num = Sum<T::Num, E::Num>;
 
     const ALL: GenericArray<Self, Self::Num> = concat::<_, T::Num, E::Num>(
-        map!(T::ALL, |t| -> Self { Ok(t) }),
-        map!(E::ALL, |t| -> Self { Err(t) }),
+        map!(T::ALL, |t| Ok::<T, E>(t)),
+        map!(E::ALL, |t| Err::<T, E>(t)),
     );
 }
 
 unsafe impl<T: Exhaustive, const N: usize> Exhaustive for [T; N]
 where
-    Const<N>: ToUInt,
+    Const<N>: ToUInt<Output: ArrayLength>,
     <T::Num as ArrayLength>::ArrayType<usize>: ConstDefault,
     T::Num: Pow<U<N>, Output: ArrayLength<ArrayType<Self>: Copy>>,
 {
     type Num = <T::Num as Pow<U<N>>>::Output;
 
-    const ALL: GenericArray<Self, Self::Num> = {
-        let all: GenericArray<UnsafeCell<MaybeUninit<Self>>, Self::Num> = unsafe {
-            #[expect(clippy::uninit_assumed_init, reason = "same layout as an array")]
-            MaybeUninit::uninit().assume_init()
-        };
-
-        /*
-        [bool; 3] -> 2^3 = 8
-
-        [--, --, --, --, --, --, --, --]
-
-        [--, --, --, --, --, --, --, [false, false]]
-
-        [--, --, --, --, --, --, [false, true], ..]
-
-        [--, --, --, --, --, [true, false], .., ..]
-
-        */
-
-        // let mut all_i = N;
-        // while all_i > 0 {
-        //     all_i -= 1;
-
-        //     let indices = GenericArray::<usize, T::Num>::const_default();
-
-        //     let value = todo!();
-
-        //     unsafe {
-        //         *all.as_slice()[all_i].get() = MaybeUninit::new(value);
-        //     }
-        // }
-
-        unsafe { const_transmute(all) }
-    };
+    const ALL: GenericArray<Self, Self::Num> = from_fn!(Self::Num, |i| {
+        let perm: GenericArray<T, U<N>> = from_fn!(U<N>, |j| {
+            #[expect(
+                clippy::cast_possible_truncation,
+                reason = "we have no other way to cast in a const context"
+            )]
+            let index = (i / T::Num::USIZE.pow(N as u32 - j as u32 - 1)) % T::Num::USIZE;
+            T::ALL.as_slice()[index]
+        });
+        perm
+    });
 }
 
 // based on:

@@ -70,42 +70,77 @@ fn results() {
 
 #[test]
 fn arrays() {
-    // assert_all::<[Infallible; 0]>([]);
-    // assert_all::<[Infallible; 1]>([]);
-    // assert_all::<[Infallible; 2]>([]);
-    // assert_all::<[(); 0]>([[]]);
+    assert_all::<[Infallible; 0]>([[]]);
+    assert_all::<[Infallible; 1]>([]);
+    assert_all::<[Infallible; 2]>([]);
 
-    // TODO
-    // assert_all([[false, false], [false, true], [true, false], [true, true]]);
+    assert_all::<[(); 0]>([[]]);
+    assert_all::<[(); 1]>([[()]]);
+    assert_all::<[(); 2]>([[(), ()]]);
 
-    // TODO
+    assert_all::<[bool; 0]>([[]]);
+    assert_all::<[bool; 1]>([[false], [true]]);
+    assert_all::<[bool; 2]>([[false, false], [false, true], [true, false], [true, true]]);
+    assert_all::<[bool; 3]>([
+        [false, false, false],
+        [false, false, true],
+        [false, true, false],
+        [false, true, true],
+        [true, false, false],
+        [true, false, true],
+        [true, true, false],
+        [true, true, true],
+    ]);
+
+    assert_all::<[Option<bool>; 0]>([[]]);
+    assert_all::<[Option<bool>; 1]>([[None], [Some(false)], [Some(true)]]);
+    assert_all::<[Option<bool>; 2]>([
+        [None, None],
+        [None, Some(false)],
+        [None, Some(true)],
+        [Some(false), None],
+        [Some(false), Some(false)],
+        [Some(false), Some(true)],
+        [Some(true), None],
+        [Some(true), Some(false)],
+        [Some(true), Some(true)],
+    ]);
 }
 
 #[test]
 fn tuples() {
-    assert_eq!(
-        [(false, false), (false, true), (true, false), (true, true)],
-        <(bool, bool)>::ALL.as_slice()
-    );
+    assert_all::<(Infallible,)>([]);
+    assert_all::<(Infallible, Infallible)>([]);
+    assert_all::<(Infallible, Infallible, Infallible)>([]);
 
-    #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
-    enum Foo {
-        A,
-        B,
-        C,
-    }
+    assert_all::<((),)>([((),)]);
+    assert_all::<((), ())>([((), ())]);
+    assert_all::<((), (), ())>([((), (), ())]);
 
-    assert_eq!(
-        [
-            (false, Foo::A),
-            (false, Foo::B),
-            (false, Foo::C),
-            (true, Foo::A),
-            (true, Foo::B),
-            (true, Foo::C),
-        ],
-        <(bool, Foo)>::ALL.as_slice()
-    );
+    assert_all::<(bool,)>([(false,), (true,)]);
+    assert_all::<(bool, bool)>([(false, false), (false, true), (true, false), (true, true)]);
+    assert_all::<(bool, bool, bool)>([
+        (false, false, false),
+        (false, false, true),
+        (false, true, false),
+        (false, true, true),
+        (true, false, false),
+        (true, false, true),
+        (true, true, false),
+        (true, true, true),
+    ]);
+
+    assert_all::<((), bool)>([((), false), ((), true)]);
+    assert_all::<(bool, ())>([(false, ()), (true, ())]);
+
+    assert_all::<(bool, Option<bool>)>([
+        (false, None),
+        (false, Some(false)),
+        (false, Some(true)),
+        (true, None),
+        (true, Some(false)),
+        (true, Some(true)),
+    ]);
 }
 
 /*
