@@ -8,32 +8,56 @@ use {
     typenum::Sum,
 };
 
-#[macro_export]
-#[doc(hidden)]
-macro_rules! map {
-    ($src:expr, | $in:pat_param | -> $T:ty { $expr:expr } $(,)?) => {{
+macro_rules! from_fn {
+    ($len:ty, | $i:pat_param | $f:expr $(,)?) => {{
         use {
             ::core::{cell::UnsafeCell, mem::MaybeUninit},
-            $crate::{array::assert_same_length, generic_array::const_transmute},
+            $crate::generic_array::const_transmute,
         };
 
-        let dst = assert_same_length::<_, UnsafeCell<MaybeUninit<$T>>, _>(&$src, unsafe {
-            MaybeUninit::uninit().assume_init()
-        });
+        let dst: GenericArray<UnsafeCell<MaybeUninit<_>>, $len> =
+            unsafe { MaybeUninit::uninit().assume_init() };
 
         let mut i = 0;
-        while i < $src.as_slice().len() {
-            let $in = $src.as_slice()[i];
-            let output = $expr;
+        while i < dst.as_slice().len() {
+            let $i = i;
+            let value = $f;
             unsafe {
-                *dst.as_slice()[i].get() = MaybeUninit::new(output);
-            }
+                *dst.as_slice()[i].get() = MaybeUninit::new(value);
+            };
             i += 1;
         }
 
         unsafe { const_transmute(dst) }
     }};
 }
+
+macro_rules! map {
+    ($src:expr, | $in:pat_param | $f:expr $(,)?) => {{
+        use {
+            ::core::{cell::UnsafeCell, mem::MaybeUninit},
+            $crate::{array::assert_same_length, generic_array::const_transmute},
+        };
+
+        let dst = assert_same_length::<_, UnsafeCell<MaybeUninit<_>>, _>(&$src, unsafe {
+            MaybeUninit::uninit().assume_init()
+        });
+
+        let mut i = 0;
+        while i < $src.as_slice().len() {
+            let $in = $src.as_slice()[i];
+            let output = $f;
+            unsafe {
+                *dst.as_slice()[i].get() = MaybeUninit::new(output);
+            };
+            i += 1;
+        }
+
+        unsafe { const_transmute(dst) }
+    }};
+}
+
+pub(crate) use {from_fn, map};
 
 pub const fn assert_same_length<A, B, N: ArrayLength>(
     _: &GenericArray<A, N>,
