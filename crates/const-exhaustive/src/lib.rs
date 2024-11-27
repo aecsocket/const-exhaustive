@@ -38,15 +38,15 @@ pub use {
 ///   - this rules out many complex types, including any heap-allocating types,
 ///     such as strings
 ///
-/// This trait is not implemented for any numerical types. Although there are
+/// This trait is implemented for most types in `core` for which it makes sense.
+/// However, it is not implemented for any numerical types. Although there are
 /// practically a finite set of numbers for any given type (because they have to
 /// fit in a finite number of bits, e.g. a [`u8`] must fit in 8 bits), there are
-/// theoretically an infinite number of numbers, which goes against the
-/// spirit of this trait.
+/// theoretically an infinite number of numbers, which goes against the spirit
+/// of this trait.
 ///
 /// However, you may still want to define an exhaustive integer, where values
-/// may only be in a specific range e.g. from 0 to 5. In this case, you can
-/// either:
+/// may only be in a specific range e.g. `0..4`. In this case, you can either:
 /// - define an enum with each value explicitly
 /// - write a wrapper type which ensures that the value within it is always in
 ///   range, then `unsafe impl Exhaustive` on the wrapper
@@ -99,7 +99,7 @@ pub use {
 /// use const_exhaustive::{Exhaustive, generic_array::GenericArray, typenum};
 ///
 /// // if you were implementing this for real,
-/// // you should probably use `NonZero<u8>` for niche optimization;
+/// // you should probably use `NonZero<u8>` or `nonmax::NonMaxU8` for niche optimization;
 /// // but this is a simplified example
 /// #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 /// struct UintUpTo4(u8);
