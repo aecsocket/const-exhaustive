@@ -1,5 +1,5 @@
 #![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
-#![doc = include_str!("../../../README.md")]
+#![doc = include_str!("../README.md")]
 #![no_std]
 
 mod array;
