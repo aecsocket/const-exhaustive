@@ -50,11 +50,11 @@ jobs:
   doc:
     runs-on: ubuntu-latest
     env:
-      RUSTDOCFLAGS: "-Dwarnings"
+      RUSTDOCFLAGS: "--cfg docsrs_dep -Dwarnings"
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - run: cargo doc --workspace --all-features
+      - uses: dtolnay/rust-toolchain@nightly
+      - run: cargo +nightly doc --workspace --all-features
 
   test:
     runs-on: ubuntu-latest

@@ -1,4 +1,8 @@
-#![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
+#![cfg_attr(
+    any(docsrs, docsrs_dep),
+    feature(rustdoc_internals),
+    expect(internal_features, reason = "for `#[doc(fake_variadic)]`")
+)]
 #![doc = include_str!("../README.md")]
 #![no_std]
 
@@ -302,7 +306,6 @@ impl<T: ArrayLength> MulAll for (T,) {
 
 macro_rules! impl_variadic {
     ($(#[$meta:meta])* $(($T:ident, $t:ident)),*) => {
-        $(#[$meta])*
         impl<$($T,)* Last> MulAll for ($($T,)* Last,)
         where
             ($($T,)*): MulAll,
@@ -343,7 +346,7 @@ all_tuples!(
     #[doc(fake_variadic)]
     impl_variadic,
     1,
-    15,
+    16,
     T,
     t
 );

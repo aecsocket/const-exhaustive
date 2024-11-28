@@ -10,10 +10,12 @@ keywords = ["const"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/aecsocket/const-exhaustive"
 rust-version = "1.83.0"
-version = "0.1.0"
+version = "0.1.1"
 
 [workspace.lints.rust]
 missing_docs = "warn"
+
+# <https://github.com/bevyengine/bevy/pull/14703>
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(docsrs_dep)"] }
 
 [workspace.lints.clippy]
@@ -27,7 +29,7 @@ std_instead_of_core = "warn"
 unwrap_used = "warn"
 
 [workspace.dependencies]
-const-exhaustive-derive = { version = "0.1.0", path = "crates/const-exhaustive-derive" }
+const-exhaustive-derive = { version = "0.1.1", path = "crates/const-exhaustive-derive" }
 
 const-default = { version = "1.0.0", default-features = false }
 generic-array = { version = "1.1.0", default-features = false, features = [

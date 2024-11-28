@@ -15,7 +15,9 @@ Enumerate all values of a type at compile time.
 
 - **`#[derive(Exhaustive)]`** - to implement it on your own types.
 
-- **`#![no_std]` and no `alloc`** - use it anywhere.
+- **`#![no_std]` and no `alloc`** - you can use it anywhere.
+
+[`GenericArray`]: https://docs.rs/generic-array/
 
 ## Examples
 
@@ -64,4 +66,22 @@ enum Complex {
 }
 ```
 
-[`GenericArray`]: https://docs.rs/generic-array/
+## Testing
+
+Run unit and doc tests:
+
+```bash
+cargo test
+```
+
+Run miri tests:
+
+```bash
+cargo +nightly miri test
+```
+
+Test generating docs:
+
+```bash
+RUSTDOCFLAGS="--cfg docsrs_dep" cargo +nightly doc --workspace --all-features
+```
