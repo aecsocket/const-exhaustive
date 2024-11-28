@@ -13,9 +13,9 @@ Enumerate all values of a type at compile time.
 - **Composable with `core` types** - supports `[T; N]`, tuples up to arity 16, `Option<T>`, and
   other types in `core`.
 
-- `#[derive(Exhaustive)]` - to implement it on your own types.
+- **`#[derive(Exhaustive)]`** - to implement it on your own types.
 
-- `#![no_std]` - and no `alloc`.
+- **`#![no_std]` and no `alloc`** - use it anywhere.
 
 ## Examples
 
