@@ -56,44 +56,7 @@ pub use {
 /// All possible values of this type, as representable in memory, must be
 /// present in [`Exhaustive::ALL`].
 ///
-/// # Examples
-///
-/// ```
-/// use const_exhaustive::Exhaustive;
-///
-/// // there is 1 value of `()`
-/// assert_eq!([()], <()>::ALL.as_slice());
-///
-/// // there are 2 values of `bool`
-/// assert_eq!([false, true], bool::ALL.as_slice());
-///
-/// // works on types with generics
-/// assert_eq!(
-///     [None, Some(false), Some(true)],
-///     Option::<bool>::ALL.as_slice()
-/// );
-///
-/// // write your own exhaustive types
-/// #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
-/// enum Direction {
-///     North,
-///     South,
-///     East,
-///     West,
-/// }
-///
-/// assert_eq!(
-///     [
-///         Direction::North,
-///         Direction::South,
-///         Direction::East,
-///         Direction::West,
-///     ],
-///     Direction::ALL.as_slice()
-/// );
-/// ```
-///
-/// Implementing [`Exhaustive`] manually:
+/// Example of implementing [`Exhaustive`] manually:
 ///
 /// ```
 /// use const_exhaustive::{Exhaustive, generic_array::GenericArray, typenum};

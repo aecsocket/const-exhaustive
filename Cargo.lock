@@ -10,7 +10,7 @@ checksum = "0b396d1f76d455557e1218ec8066ae14bba60b4b36ecd55577ba979f5db7ecaa"
 
 [[package]]
 name = "const-exhaustive"
-version = "0.1.1"
+version = "0.1.0"
 dependencies = [
  "const-default",
  "const-exhaustive-derive",
@@ -21,7 +21,7 @@ dependencies = [
 
 [[package]]
 name = "const-exhaustive-derive"
-version = "0.1.1"
+version = "0.1.0"
 dependencies = [
  "proc-macro2",
  "quote",
