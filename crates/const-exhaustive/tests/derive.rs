@@ -1,6 +1,12 @@
 #![expect(missing_docs, reason = "test module")]
 
-use {const_exhaustive::Exhaustive, core::fmt::Debug};
+use {
+    const_exhaustive::Exhaustive,
+    core::fmt::Debug,
+    generic_array::ArrayLength,
+    std::ops::Mul,
+    typenum::{Unsigned, U1},
+};
 
 fn assert_all<T: Exhaustive + Debug + PartialEq>(values: impl IntoIterator<Item = T>) {
     let values = values.into_iter().collect::<Vec<_>>();
@@ -240,6 +246,31 @@ fn compound() {
 
 #[test]
 fn generic() {
-    #[derive(Debug, Clone, Copy, PartialEq)]
-    struct Wrapper<T>(T);
+    // #[derive(Debug, Clone, Copy, PartialEq)]
+    // struct Wrapper<A, B>(A, B);
+
+    // unsafe impl<A, B> Exhaustive for Wrapper<A, B>
+    // where
+    //     A: Exhaustive,
+    //     B: Exhaustive,
+    //     U1: Mul<A::Num, Output: Mul<B::Num, Output: ArrayLength<ArrayType<Self>: Copy>>>,
+    // {
+    //     type Num = <<U1 as Mul<A::Num>>::Output as Mul<B::Num>>::Output;
+
+    //     const ALL: generic_array::GenericArray<Self, Self::Num> = todo!();
+    // }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
+    struct Wrapper2<A, B> {
+        a: A,
+        b: B,
+    }
+
+    // unsafe impl Exhaustive for Wrapper2
+    // where
+    //     U1: Mul<<() as Exhaustive>::Num, Output: ArrayLength<ArrayType<Self>: Copy>>,
+    // {
+    //     type Num = <() as Exhaustive>::Num;
+    //     const ALL: generic_array::GenericArray<Self, Self::Num> = todo!();
+    // }
 }
