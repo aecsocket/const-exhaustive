@@ -1,23 +1,21 @@
 [package]
-description = "Enumerate all values of a type at compile time"
 name = "const-exhaustive"
-
-authors.workspace = true
-categories.workspace = true
-edition.workspace = true
-keywords.workspace = true
-license.workspace = true
-repository.workspace = true
-rust-version.workspace = true
 version.workspace = true
-
-[lints]
-workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Enumerate all values of a type at compile time"
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [package.metadata.docs.rs]
 all-features = true
 # <https://github.com/bevyengine/bevy/pull/14703>
 rustc-args = ["--cfg", "docsrs_dep"]
+
+[lib]
+test = false
 
 [dependencies]
 const-exhaustive-derive = { workspace = true }
@@ -26,3 +24,6 @@ const-default = { workspace = true }
 generic-array = { workspace = true }
 typenum = { workspace = true }
 variadics_please = { workspace = true }
+
+[lints]
+workspace = true

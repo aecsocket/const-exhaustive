@@ -1,23 +1,23 @@
 [package]
-description = "Derive macro for `const-exhaustive`"
 name = "const-exhaustive-derive"
-
-authors.workspace = true
-categories.workspace = true
-edition.workspace = true
-keywords.workspace = true
-license.workspace = true
-repository.workspace = true
-rust-version.workspace = true
 version.workspace = true
-
-[lints]
-workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Derive macro for `const-exhaustive`"
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [lib]
+doctest = false
 proc-macro = true
+test = false
 
 [dependencies]
 proc-macro2 = { workspace = true }
 quote = { workspace = true }
 syn = { workspace = true, features = ["full"] }
+
+[lints]
+workspace = true
