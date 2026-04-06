@@ -12,5 +12,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@nightly
         with:
           components: rustfmt,clippy,miri
-      - uses: extractions/setup-just@v4
+      - uses: cargo-bins/cargo-binstall@main
+      - run: cargo binstall --no-confirm just typos-cli cargo-shear
+      - run: curl -fsSL https://tombi-toml.github.io/tombi/install.sh | sh
       - run: just test

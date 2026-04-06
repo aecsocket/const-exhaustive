@@ -79,3 +79,5 @@ Run full tests, including Miri tests on nightly:
 ```bash
 just test
 ```
+
+[`just`]: http://github.com/casey/just
