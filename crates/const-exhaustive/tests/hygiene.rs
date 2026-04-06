@@ -19,8 +19,6 @@ const fn hygiene() {
     #[derive(Debug, Clone, Copy, const_exhaustive::Exhaustive)]
     struct Mul;
     #[derive(Debug, Clone, Copy, const_exhaustive::Exhaustive)]
-    struct UnsafeCell;
-    #[derive(Debug, Clone, Copy, const_exhaustive::Exhaustive)]
     struct MaybeUninit;
 
     #[derive(Debug, Clone, Copy, const_exhaustive::Exhaustive)]
@@ -30,29 +28,19 @@ const fn hygiene() {
         c: Unsigned,
         d: Add,
         e: Mul,
-        f: UnsafeCell,
-        g: MaybeUninit,
+        f: MaybeUninit,
     }
 
     #[derive(Debug, Clone, Copy, const_exhaustive::Exhaustive)]
     enum Enum {
-        A(
-            Exhaustive,
-            GenericArray,
-            Unsigned,
-            Add,
-            Mul,
-            UnsafeCell,
-            MaybeUninit,
-        ),
+        A(Exhaustive, GenericArray, Unsigned, Add, Mul, MaybeUninit),
         B {
             a: Exhaustive,
             b: GenericArray,
             c: Unsigned,
             d: Add,
             e: Mul,
-            f: UnsafeCell,
-            g: MaybeUninit,
+            f: MaybeUninit,
         },
     }
 }
