@@ -18,7 +18,7 @@ use {
         ops::{Add, Mul},
     },
     generic_array::{ArrayLength, GenericArray},
-    typenum::{Const, Pow, Sum, ToUInt, Unsigned, U, U0, U1, U2},
+    typenum::{Const, Pow, Sum, ToUInt, U, U0, U1, U2, Unsigned},
     variadics_please::all_tuples,
 };
 pub use {
@@ -62,7 +62,7 @@ pub use {
 /// Example of implementing [`Exhaustive`] manually:
 ///
 /// ```
-/// use const_exhaustive::{generic_array::GenericArray, typenum, Exhaustive};
+/// use const_exhaustive::{Exhaustive, generic_array::GenericArray, typenum};
 ///
 /// // if you were implementing this for real,
 /// // you should probably use `NonZero<u8>` or `nonmax::NonMaxU8` for niche optimization;
@@ -73,11 +73,7 @@ pub use {
 /// impl UintUpTo4 {
 ///     #[must_use]
 ///     pub const fn new(n: u8) -> Option<Self> {
-///         if n < 4 {
-///             Some(Self(n))
-///         } else {
-///             None
-///         }
+///         if n < 4 { Some(Self(n)) } else { None }
 ///     }
 ///
 ///     #[must_use]
@@ -121,7 +117,7 @@ pub unsafe trait Exhaustive: Sized + Copy {
     /// # Examples
     ///
     /// ```
-    /// use const_exhaustive::{typenum::Unsigned, Exhaustive};
+    /// use const_exhaustive::{Exhaustive, typenum::Unsigned};
     ///
     /// assert_eq!(1, <() as Exhaustive>::Num::USIZE);
     /// assert_eq!(2, <bool as Exhaustive>::Num::USIZE);

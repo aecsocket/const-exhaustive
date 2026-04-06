@@ -5,10 +5,10 @@
 use {
     core::iter::once,
     proc_macro2::{Span, TokenStream},
-    quote::{quote, ToTokens},
+    quote::{ToTokens, quote},
     syn::{
-        parse_macro_input, parse_quote, Data, DataEnum, DataStruct, DeriveInput, Error, Field,
-        Fields, Ident, Result, Type, WherePredicate,
+        Data, DataEnum, DataStruct, DeriveInput, Error, Field, Fields, Ident, Result, Type,
+        WherePredicate, parse_macro_input, parse_quote,
     },
 };
 

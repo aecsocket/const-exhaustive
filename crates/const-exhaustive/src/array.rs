@@ -1,6 +1,6 @@
 use {
     core::{
-        mem::{forget, MaybeUninit},
+        mem::{MaybeUninit, forget},
         ops::Add,
     },
     generic_array::{ArrayLength, GenericArray},

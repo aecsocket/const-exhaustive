@@ -1,11 +1,11 @@
 [workspace]
-resolver = "2"
+resolver = "3"
 members = ["crates/*"]
 
 [workspace.package]
-version = "1.0.0-rc.1"
-edition = "2021"
-rust-version = "1.83.0"
+version = "1.0.0"
+edition = "2024"
+rust-version = "1.85.0"
 repository = "https://github.com/aecsocket/const-exhaustive"
 license = "MIT OR Apache-2.0"
 keywords = ["const"]
