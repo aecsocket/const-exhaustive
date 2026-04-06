@@ -1,7 +1,7 @@
 use {
     core::{
         cell::UnsafeCell,
-        mem::{MaybeUninit, forget},
+        mem::{forget, MaybeUninit},
         ops::Add,
     },
     generic_array::{ArrayLength, GenericArray},

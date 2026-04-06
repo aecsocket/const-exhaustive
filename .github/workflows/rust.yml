@@ -1,11 +1,17 @@
 on:
   pull_request:
+    paths:
+      - "crates/**"
+      - "examples/**"
   push:
     branches:
       - main
+    paths:
+      - "crates/**"
 
 env:
   CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
 
 jobs:
   fmt:

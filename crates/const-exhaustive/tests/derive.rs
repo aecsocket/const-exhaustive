@@ -1,8 +1,8 @@
 #![expect(missing_docs, reason = "test module")]
 
-use const_exhaustive::Exhaustive;
+use {const_exhaustive::Exhaustive, core::fmt::Debug};
 
-fn assert_all<T: Exhaustive + core::fmt::Debug + PartialEq>(values: impl IntoIterator<Item = T>) {
+fn assert_all<T: Exhaustive + Debug + PartialEq>(values: impl IntoIterator<Item = T>) {
     let values = values.into_iter().collect::<Vec<_>>();
     assert_eq!(values.as_slice(), T::ALL.as_slice());
 }

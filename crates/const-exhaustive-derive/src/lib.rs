@@ -4,10 +4,10 @@
 
 use {
     proc_macro2::{Span, TokenStream},
-    quote::{ToTokens, quote},
+    quote::{quote, ToTokens},
     syn::{
-        Data, DataEnum, DataStruct, DeriveInput, Error, Field, Fields, Ident, Result,
-        parse_macro_input,
+        parse_macro_input, Data, DataEnum, DataStruct, DeriveInput, Error, Field, Fields, Ident,
+        Result,
     },
 };
 
