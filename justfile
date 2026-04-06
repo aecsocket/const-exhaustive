@@ -31,6 +31,7 @@ test:
     failed=0
 
     just check || failed=1
+    cargo test --doc --workspace --all-features || failed=1
     cargo +nightly miri nextest run --workspace --all-features --all-targets || failed=1
 
     if [ "$failed" -ne 0 ]; then exit 1; fi
