@@ -17,7 +17,10 @@ use {
 /// This type must be [`Clone`] and [`Copy`], and all types contained within
 /// it must also be `Exhaustive`.
 ///
-/// The type may have type parameters.
+/// The type may have type parameters (see *Limitations*).
+///
+/// Be warned that if a type is `Exhaustive`, then changing any of its fields
+/// becomes a semver hazard.
 ///
 /// # Limitations
 ///

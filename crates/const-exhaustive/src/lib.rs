@@ -104,6 +104,9 @@ pub use {
 ///     Option::<UintUpTo4>::ALL.as_slice()
 /// );
 /// ```
+///
+/// Be warned that if a type is `Exhaustive`, then changing any of its fields
+/// becomes a semver hazard.
 #[diagnostic::on_unimplemented(
     message = "all values of `{Self}` are not known statically",
     label = "not exhaustive",
