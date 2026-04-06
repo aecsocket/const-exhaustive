@@ -68,20 +68,14 @@ enum Complex {
 
 ## Testing
 
-Run unit and doc tests:
+This project uses [`just`] as the command runner.
 
+Run quick checks:
 ```bash
-cargo test
+just check
 ```
 
-Run miri tests:
-
+Run full tests, including Miri tests on nightly:
 ```bash
-cargo +nightly miri test
-```
-
-Test generating docs:
-
-```bash
-RUSTDOCFLAGS="--cfg docsrs_dep" cargo +nightly doc --workspace --all-features
+just test
 ```
