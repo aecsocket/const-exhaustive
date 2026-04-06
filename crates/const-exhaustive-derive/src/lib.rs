@@ -7,7 +7,7 @@ use {
     quote::{quote, ToTokens},
     syn::{
         parse_macro_input, parse_quote, Data, DataEnum, DataStruct, DeriveInput, Error, Field,
-        Fields, Generics, Ident, Result,
+        Fields, Ident, Result, WherePredicate,
     },
 };
 
@@ -36,7 +36,7 @@ macro_rules! shortcuts {
         struct $shortcuts_name:ident {
             $(
                 $($item_path:ident::)* : $item_name:ident
-            ),*
+            ),* $(,)?
         }
     } => {
         #[allow(non_snake_case, reason = "shortcut items")]
@@ -60,6 +60,7 @@ macro_rules! shortcuts {
 
 shortcuts! {
     struct Shortcuts {
+        core::marker:::Copy,
         core::mem:::MaybeUninit,
         core::ops:::Add,
         core::ops:::Mul,
@@ -68,7 +69,8 @@ shortcuts! {
         const_exhaustive::typenum:::U0,
         const_exhaustive::typenum:::U1,
         const_exhaustive::typenum:::Unsigned,
-        const_exhaustive::generic_array:::GenericArray
+        const_exhaustive::generic_array:::GenericArray,
+        const_exhaustive::generic_array:::ArrayLength,
     }
 }
 
@@ -81,7 +83,11 @@ fn derive(input: &DeriveInput) -> Result<TokenStream> {
         ..
     } = Shortcuts::default();
 
-    let ExhaustiveImpl { num, values } = match &input.data {
+    let ExhaustiveImpl {
+        num,
+        values,
+        predicate,
+    } = match &input.data {
         Data::Struct(data) => make_for_struct(data),
         Data::Enum(data) => make_for_enum(data),
         Data::Union(_) => {
@@ -93,8 +99,19 @@ fn derive(input: &DeriveInput) -> Result<TokenStream> {
     };
 
     let name = &input.ident;
+
     let mut generics = input.generics.clone();
-    extend_generics(&mut generics);
+    let type_params = generics
+        .type_params()
+        .map(|p| p.ident.clone())
+        .collect::<Vec<_>>();
+    for param in type_params {
+        generics.make_where_clause().predicates.push(parse_quote! {
+            #param: #Exhaustive
+        });
+    }
+    generics.make_where_clause().predicates.push(predicate);
+
     let (impl_generics, type_generics, where_clause) = generics.split_for_impl();
 
     Ok(quote! {
@@ -115,23 +132,10 @@ fn derive(input: &DeriveInput) -> Result<TokenStream> {
     })
 }
 
-fn extend_generics(generics: &mut Generics) {
-    let Shortcuts { Exhaustive, .. } = Shortcuts::default();
-
-    let type_params = generics
-        .type_params()
-        .map(|p| p.ident.clone())
-        .collect::<Vec<_>>();
-    for param in type_params {
-        generics.make_where_clause().predicates.push(parse_quote! {
-            #param: #Exhaustive
-        });
-    }
-}
-
 struct ExhaustiveImpl {
     num: TokenStream,
     values: TokenStream,
+    predicate: WherePredicate,
 }
 
 fn make_for_struct(data: &DataStruct) -> ExhaustiveImpl {
@@ -144,15 +148,24 @@ fn make_for_enum(data: &DataEnum) -> ExhaustiveImpl {
         values: TokenStream,
     }
 
-    let Shortcuts { U0, Add, .. } = Shortcuts::default();
+    let Shortcuts {
+        U0,
+        U1,
+        Add,
+        ArrayLength,
+        ..
+    } = Shortcuts::default();
 
     let variants = data
         .variants
         .iter()
         .map(|variant| {
             let ident = &variant.ident;
-            let ExhaustiveImpl { num, values } =
-                make_for_fields(&variant.fields, quote! { Self::#ident });
+            let ExhaustiveImpl {
+                num,
+                values,
+                predicate,
+            } = make_for_fields(&variant.fields, quote! { Self::#ident });
             VariantInfo { num, values }
         })
         .collect::<Vec<_>>();
@@ -177,7 +190,12 @@ fn make_for_enum(data: &DataEnum) -> ExhaustiveImpl {
         #(#values)*
     };
 
-    ExhaustiveImpl { num, values }
+    ExhaustiveImpl {
+        num,
+        values,
+        // TODO
+        predicate: parse_quote! { #U1: #ArrayLength<ArrayType<Self>: Copy> },
+    }
 }
 
 fn make_for_fields(fields: &Fields, construct_ident: impl ToTokens) -> ExhaustiveImpl {
@@ -207,6 +225,8 @@ fn make_for_fields(fields: &Fields, construct_ident: impl ToTokens) -> Exhaustiv
         U1,
         Unsigned,
         Mul,
+        ArrayLength,
+        Copy,
         ..
     } = Shortcuts::default();
 
@@ -259,6 +279,7 @@ fn make_for_fields(fields: &Fields, construct_ident: impl ToTokens) -> Exhaustiv
         }
     };
 
+    // this one is right fold
     let num = fields
         .iter()
         .rfold(quote! { #U1 }, |acc, FieldInfo { field, .. }| {
@@ -267,6 +288,19 @@ fn make_for_fields(fields: &Fields, construct_ident: impl ToTokens) -> Exhaustiv
                 <#acc as #Mul<<#ty as #Exhaustive>::Num>>::Output
             }
         });
+
+    // and this one is left fold
+    // has to be the opposite folding order to `num`
+    let bound = fields.iter().fold(
+        quote! { #ArrayLength<ArrayType<Self>: #Copy> },
+        |acc, FieldInfo { field, .. }| {
+            let ty = &field.ty;
+            quote! {
+                #Mul<<#ty as #Exhaustive>::Num, Output: #acc>
+            }
+        },
+    );
+    let predicate = parse_quote! { #U1: #bound };
 
     // rfold here so that the value order matches the tuple value order
     // e.g. we generate i_0 { i_1 { i_2 } }
@@ -288,5 +322,9 @@ fn make_for_fields(fields: &Fields, construct_ident: impl ToTokens) -> Exhaustiv
         },
     );
 
-    ExhaustiveImpl { num, values }
+    ExhaustiveImpl {
+        num,
+        values,
+        predicate,
+    }
 }
