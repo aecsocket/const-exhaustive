@@ -27,7 +27,7 @@ use {
 /// use a type parameter. This is a bug in the Rust compiler not propagating
 /// type bounds properly. Here's a minimal reproduction of the issue:
 ///
-/// ```no_run
+/// ```ignore
 /// use typenum::{U0, U1, U2};
 /// use generic_array::ArrayLength;
 /// use core::ops::Add;

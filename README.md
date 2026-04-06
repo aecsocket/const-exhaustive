@@ -64,6 +64,26 @@ enum Complex {
         bar: (Result<Direction, [bool; 4]>),
     },
 }
+
+// works with generics*
+#[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
+struct Wrapper<T>(T);
+
+#[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
+struct DirectionSet<T> {
+    pub north: T,
+    pub south: T,
+    pub east: T,
+    pub west: T,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
+enum ForDirection<T> {
+    North(T),
+    South(T),
+    East(T),
+    West(T)
+}
 ```
 
 ## Testing
