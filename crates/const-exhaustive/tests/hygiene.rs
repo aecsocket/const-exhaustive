@@ -15,9 +15,9 @@ const fn hygiene() {
     #[derive(Debug, Clone, Copy, const_exhaustive::Exhaustive)]
     struct Unsigned;
     #[derive(Debug, Clone, Copy, const_exhaustive::Exhaustive)]
-    struct Sum;
+    struct Add;
     #[derive(Debug, Clone, Copy, const_exhaustive::Exhaustive)]
-    struct Prod;
+    struct Mul;
     #[derive(Debug, Clone, Copy, const_exhaustive::Exhaustive)]
     struct UnsafeCell;
     #[derive(Debug, Clone, Copy, const_exhaustive::Exhaustive)]
@@ -28,8 +28,8 @@ const fn hygiene() {
         a: Exhaustive,
         b: GenericArray,
         c: Unsigned,
-        d: Sum,
-        e: Prod,
+        d: Add,
+        e: Mul,
         f: UnsafeCell,
         g: MaybeUninit,
     }
@@ -40,8 +40,8 @@ const fn hygiene() {
             Exhaustive,
             GenericArray,
             Unsigned,
-            Sum,
-            Prod,
+            Add,
+            Mul,
             UnsafeCell,
             MaybeUninit,
         ),
@@ -49,8 +49,8 @@ const fn hygiene() {
             a: Exhaustive,
             b: GenericArray,
             c: Unsigned,
-            d: Sum,
-            e: Prod,
+            d: Add,
+            e: Mul,
             f: UnsafeCell,
             g: MaybeUninit,
         },
