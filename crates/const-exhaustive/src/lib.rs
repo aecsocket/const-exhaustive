@@ -124,6 +124,24 @@ pub unsafe trait Exhaustive: Sized + Copy {
     /// assert_eq!(1, <() as Exhaustive>::Num::USIZE);
     /// assert_eq!(2, <bool as Exhaustive>::Num::USIZE);
     /// ```
+    // I experimented with removing the `ArrayType<Self>: Copy` bound here, but
+    // this leads to compiler errors when we access a value of `T::ALL`. Rust
+    // thinks that `T::ALL` might have drop glue, and forbids dropping it in
+    // a const context. We can work around this by assigning it to a value,
+    // then forgetting that value afterwards:
+    //
+    // ```
+    // let all = T::ALL;
+    // let value = all.as_slice()[index];
+    // forget(all);
+    // ```
+    //
+    // However, this isn't really what we want. We already know that this
+    // exhaustive type is `Copy` - it's in the trait bounds - so this array
+    // *must* be `Copy` as well. We shouldn't be shunting this responsibility
+    // to consumers of `T::ALL`, but this *does* add more complexity to
+    // implementors of `Exhaustive`. That's fine, since users can just use our
+    // macros, and this is a complicated trait anyway.
     type Num: ArrayLength<ArrayType<Self>: Copy>;
 
     /// All values of this type.
@@ -142,7 +160,7 @@ pub unsafe trait Exhaustive: Sized + Copy {
     /// ## Primitives
     ///
     /// - [`Infallible`] has no values
-    /// - [`()`]: `[ () ]`
+    /// - `()`: `[ () ]`
     /// - [`bool`]: `[ false, true ]`
     ///
     /// ## Tuples

@@ -200,6 +200,7 @@ fn enum_variant_mix() {
         Unit,
         Tuple(bool),
         Named { foo: bool },
+        EndUnit,
     }
 
     assert_eq!(
@@ -209,6 +210,7 @@ fn enum_variant_mix() {
             Dummy::Tuple(true),
             Dummy::Named { foo: false },
             Dummy::Named { foo: true },
+            Dummy::EndUnit,
         ],
         Dummy::ALL.as_slice()
     );
@@ -235,3 +237,9 @@ fn compound() {
         Compound::ALL.as_slice()
     );
 }
+
+// #[test]
+// fn generic() {
+//     #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
+//     struct Wrapper<T>(T);
+// }

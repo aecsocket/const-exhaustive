@@ -6,8 +6,8 @@ use {
     proc_macro2::{Span, TokenStream},
     quote::{quote, ToTokens},
     syn::{
-        parse_macro_input, Data, DataEnum, DataStruct, DeriveInput, Error, Field, Fields, Ident,
-        Result,
+        parse_macro_input, parse_quote, Data, DataEnum, DataStruct, DeriveInput, Error, Field,
+        Fields, Generics, Ident, Result,
     },
 };
 
@@ -62,23 +62,26 @@ shortcuts! {
     struct Shortcuts {
         core::cell:::UnsafeCell,
         core::mem:::MaybeUninit,
+        core::ops:::Add,
+        core::ops:::Mul,
         const_exhaustive:::Exhaustive,
         const_exhaustive:::const_transmute,
         const_exhaustive::typenum:::U0,
         const_exhaustive::typenum:::U1,
         const_exhaustive::typenum:::Unsigned,
-        const_exhaustive::typenum::operator_aliases:::Sum,
-        const_exhaustive::typenum::operator_aliases:::Prod,
         const_exhaustive::generic_array:::GenericArray
     }
 }
 
 fn derive(input: &DeriveInput) -> Result<TokenStream> {
-    let Shortcuts { Exhaustive, .. } = Shortcuts::default();
-
-    let name = &input.ident;
-    let generics = &input.generics;
-    let (impl_generics, type_generics, where_clause) = generics.split_for_impl();
+    let Shortcuts {
+        Exhaustive,
+        UnsafeCell,
+        MaybeUninit,
+        GenericArray,
+        const_transmute,
+        ..
+    } = Shortcuts::default();
 
     let ExhaustiveImpl { num, values } = match &input.data {
         Data::Struct(data) => make_for_struct(data),
@@ -91,12 +94,41 @@ fn derive(input: &DeriveInput) -> Result<TokenStream> {
         }
     };
 
-    let body = impl_body(num, values);
+    let name = &input.ident;
+    let mut generics = input.generics.clone();
+    extend_generics(&mut generics);
+    let (impl_generics, type_generics, where_clause) = generics.split_for_impl();
+
     Ok(quote! {
         unsafe impl #impl_generics #Exhaustive for #name #type_generics #where_clause {
-            #body
+            type Num = #num;
+
+            const ALL: #GenericArray<Self, Self::Num> = {
+                let all: #GenericArray<#UnsafeCell<#MaybeUninit<Self>>, Self::Num> = unsafe {
+                    #MaybeUninit::uninit().assume_init()
+                };
+
+                let mut i = 0;
+                #values
+
+                unsafe { #const_transmute(all) }
+            };
         }
     })
+}
+
+fn extend_generics(generics: &mut Generics) {
+    let Shortcuts { Exhaustive, .. } = Shortcuts::default();
+
+    let type_params = generics
+        .type_params()
+        .map(|p| p.ident.clone())
+        .collect::<Vec<_>>();
+    for param in type_params {
+        generics.make_where_clause().predicates.push(parse_quote! {
+            #param: #Exhaustive
+        });
+    }
 }
 
 struct ExhaustiveImpl {
@@ -114,7 +146,7 @@ fn make_for_enum(data: &DataEnum) -> ExhaustiveImpl {
         values: TokenStream,
     }
 
-    let Shortcuts { U0, Sum, .. } = Shortcuts::default();
+    let Shortcuts { U0, Add, .. } = Shortcuts::default();
 
     let variants = data
         .variants
@@ -130,7 +162,7 @@ fn make_for_enum(data: &DataEnum) -> ExhaustiveImpl {
     let num = variants
         .iter()
         .fold(quote! { #U0 }, |acc, VariantInfo { num, .. }| {
-            quote! { #Sum<#acc, #num> }
+            quote! { <#acc as #Add<#num>>::Output }
         });
 
     let values = variants
@@ -176,7 +208,7 @@ fn make_for_fields(fields: &Fields, construct_ident: impl ToTokens) -> Exhaustiv
         Exhaustive,
         U1,
         Unsigned,
-        Prod,
+        Mul,
         ..
     } = Shortcuts::default();
 
@@ -231,10 +263,10 @@ fn make_for_fields(fields: &Fields, construct_ident: impl ToTokens) -> Exhaustiv
 
     let num = fields
         .iter()
-        .fold(quote! { #U1 }, |acc, FieldInfo { field, .. }| {
+        .rfold(quote! { #U1 }, |acc, FieldInfo { field, .. }| {
             let ty = &field.ty;
             quote! {
-                #Prod<#acc, <#ty as #Exhaustive>::Num>
+                <#acc as #Mul<<#ty as #Exhaustive>::Num>>::Output
             }
         });
 
@@ -261,32 +293,4 @@ fn make_for_fields(fields: &Fields, construct_ident: impl ToTokens) -> Exhaustiv
     );
 
     ExhaustiveImpl { num, values }
-}
-
-fn impl_body(num: impl ToTokens, values: impl ToTokens) -> TokenStream {
-    let Shortcuts {
-        UnsafeCell,
-        MaybeUninit,
-        GenericArray,
-        const_transmute,
-        ..
-    } = Shortcuts::default();
-
-    quote! {
-        type Num = #num;
-
-        const ALL: #GenericArray<Self, Self::Num> = {
-            let all: #GenericArray<#UnsafeCell<#MaybeUninit<Self>>, Self::Num> = unsafe {
-                #MaybeUninit::uninit().assume_init()
-            };
-
-            let mut i = 0;
-
-            #values
-
-            unsafe {
-                #const_transmute(all)
-            }
-        };
-    }
 }

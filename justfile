@@ -12,6 +12,7 @@ check:
     cargo +nightly fmt --check || failed=1
     cargo shear --deny-warnings || failed=1
     cargo clippy --workspace --all-features --all-targets || failed=1
+    RUSTDOCFLAGS="--cfg docsrs_dep -Dwarnings" cargo +nightly doc --workspace --all-features || failed=1
 
     if [ "$failed" -ne 0 ]; then exit 1; fi
 
@@ -25,4 +26,11 @@ prepare:
     just check
 
 test:
-    cargo +nightly miri nextest run --workspace --all-features --all-targets
+    #!/usr/bin/env bash
+    set +e
+    failed=0
+
+    just check || failed=1
+    cargo +nightly miri nextest run --workspace --all-features --all-targets || failed=1
+
+    if [ "$failed" -ne 0 ]; then exit 1; fi
