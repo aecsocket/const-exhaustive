@@ -2,10 +2,7 @@
 
 use {
     const_exhaustive::Exhaustive,
-    core::fmt::Debug,
-    generic_array::ArrayLength,
-    std::ops::Mul,
-    typenum::{Unsigned, U1},
+    core::{fmt::Debug, marker::PhantomData},
 };
 
 fn assert_all<T: Exhaustive + Debug + PartialEq>(values: impl IntoIterator<Item = T>) {
@@ -245,32 +242,150 @@ fn compound() {
 }
 
 #[test]
+#[expect(clippy::items_after_statements, reason = "easier to read")]
 fn generic() {
-    // #[derive(Debug, Clone, Copy, PartialEq)]
-    // struct Wrapper<A, B>(A, B);
-
-    // unsafe impl<A, B> Exhaustive for Wrapper<A, B>
-    // where
-    //     A: Exhaustive,
-    //     B: Exhaustive,
-    //     U1: Mul<A::Num, Output: Mul<B::Num, Output: ArrayLength<ArrayType<Self>: Copy>>>,
-    // {
-    //     type Num = <<U1 as Mul<A::Num>>::Output as Mul<B::Num>>::Output;
-
-    //     const ALL: generic_array::GenericArray<Self, Self::Num> = todo!();
-    // }
+    #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
+    struct Wrapper1<T>(T);
+    assert_eq!(Wrapper1::<()>::ALL.as_slice(), [Wrapper1(())]);
+    assert_eq!(
+        Wrapper1::<bool>::ALL.as_slice(),
+        [Wrapper1(false), Wrapper1(true)],
+    );
 
     #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
-    struct Wrapper2<A, B> {
+    struct Wrapper2<A, B>(A, B);
+    assert_eq!(Wrapper2::<(), ()>::ALL.as_slice(), [Wrapper2((), ())]);
+    assert_eq!(
+        Wrapper2::<(), bool>::ALL.as_slice(),
+        [Wrapper2((), false), Wrapper2((), true)],
+    );
+    assert_eq!(
+        Wrapper2::<bool, bool>::ALL.as_slice(),
+        [
+            Wrapper2(false, false),
+            Wrapper2(false, true),
+            Wrapper2(true, false),
+            Wrapper2(true, true)
+        ],
+    );
+
+    #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
+    struct WrapperNamed<A, B> {
         a: A,
         b: B,
     }
+    assert_eq!(
+        WrapperNamed::<(), ()>::ALL.as_slice(),
+        [WrapperNamed { a: (), b: () }]
+    );
+    assert_eq!(
+        WrapperNamed::<(), bool>::ALL.as_slice(),
+        [
+            WrapperNamed { a: (), b: false },
+            WrapperNamed { a: (), b: true }
+        ]
+    );
+    assert_eq!(
+        WrapperNamed::<bool, bool>::ALL.as_slice(),
+        [
+            WrapperNamed { a: false, b: false },
+            WrapperNamed { a: false, b: true },
+            WrapperNamed { a: true, b: false },
+            WrapperNamed { a: true, b: true }
+        ],
+    );
 
-    // unsafe impl Exhaustive for Wrapper2
-    // where
-    //     U1: Mul<<() as Exhaustive>::Num, Output: ArrayLength<ArrayType<Self>: Copy>>,
-    // {
-    //     type Num = <() as Exhaustive>::Num;
-    //     const ALL: generic_array::GenericArray<Self, Self::Num> = todo!();
-    // }
+    #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
+    struct WrapperOption<A, B> {
+        a: A,
+        b: Option<B>,
+    }
+    assert_eq!(
+        WrapperOption::<(), ()>::ALL.as_slice(),
+        [
+            WrapperOption { a: (), b: None },
+            WrapperOption { a: (), b: Some(()) }
+        ]
+    );
+    assert_eq!(
+        WrapperOption::<(), bool>::ALL.as_slice(),
+        [
+            WrapperOption { a: (), b: None },
+            WrapperOption {
+                a: (),
+                b: Some(false)
+            },
+            WrapperOption {
+                a: (),
+                b: Some(true)
+            },
+        ]
+    );
+    assert_eq!(
+        WrapperOption::<bool, bool>::ALL.as_slice(),
+        [
+            WrapperOption { a: false, b: None },
+            WrapperOption {
+                a: false,
+                b: Some(false)
+            },
+            WrapperOption {
+                a: false,
+                b: Some(true)
+            },
+            WrapperOption { a: true, b: None },
+            WrapperOption {
+                a: true,
+                b: Some(false)
+            },
+            WrapperOption {
+                a: true,
+                b: Some(true)
+            }
+        ],
+    );
+
+    #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
+    struct WrapperPhantom<T> {
+        _phantom: PhantomData<T>,
+    }
+    assert_eq!(
+        WrapperPhantom::<()>::ALL.as_slice(),
+        [WrapperPhantom {
+            _phantom: PhantomData
+        }],
+    );
+    assert_eq!(
+        WrapperPhantom::<bool>::ALL.as_slice(),
+        [WrapperPhantom {
+            _phantom: PhantomData
+        }],
+    );
+
+    #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
+    enum WrapperEnum1<T> {
+        T(T),
+    }
+    assert_eq!(WrapperEnum1::<()>::ALL.as_slice(), [WrapperEnum1::T(())]);
+    assert_eq!(
+        WrapperEnum1::<bool>::ALL.as_slice(),
+        [WrapperEnum1::T(false), WrapperEnum1::T(true)]
+    );
+
+    #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
+    enum WrapperEnum2<T> {
+        A { a: T },
+        B(T),
+        C((T, T)),
+        D,
+    }
+    assert_eq!(
+        WrapperEnum2::<()>::ALL.as_slice(),
+        [
+            WrapperEnum2::A { a: () },
+            WrapperEnum2::B(()),
+            WrapperEnum2::C(((), ())),
+            WrapperEnum2::D
+        ]
+    );
 }

@@ -3,11 +3,12 @@
 //! [`const-exhaustive`]: https://docs.rs/const-exhaustive
 
 use {
+    core::iter::once,
     proc_macro2::{Span, TokenStream},
     quote::{quote, ToTokens},
     syn::{
         parse_macro_input, parse_quote, Data, DataEnum, DataStruct, DeriveInput, Error, Field,
-        Fields, Ident, Result, WherePredicate,
+        Fields, Ident, Result, Type, WherePredicate,
     },
 };
 
@@ -16,13 +17,41 @@ use {
 /// This type must be [`Clone`] and [`Copy`], and all types contained within
 /// it must also be `Exhaustive`.
 ///
+/// The type may have type parameters.
+///
 /// # Limitations
 ///
 /// This macro cannot be used on `union`s.
 ///
-/// This macro cannot yet be used on types with type parameters. This is
-/// technically possible, but requires the macro to add more explicit `where`
-/// bounds. Pull requests welcome!
+/// This macro cannot be used on generic `enum`s whose first variants do not
+/// use a type parameter. This is a bug in the Rust compiler not propagating
+/// type bounds properly. Here's a minimal reproduction of the issue:
+///
+/// ```no_run
+/// use typenum::{U0, U1, U2};
+/// use generic_array::ArrayLength;
+/// use core::ops::Add;
+///
+/// trait Exhaustive {
+///     type Num;
+/// }
+///
+/// impl Exhaustive for bool {
+///     type Num = U2;
+/// }
+///
+/// struct X<T>(T);
+/// impl<T> Exhaustive for X<T>
+/// where
+///     T: Exhaustive,
+///     U0: Add<U1, Output: Add<<T as Exhaustive>::Num, Output: ArrayLength>>, // broken
+///     // U0: Add<U1, Output: ArrayLength> // works
+///     // U0: Add<U1, Output: Add<<T as Exhaustive>::Num>>, // works
+///     // U0: Add<U1, Output: Add<<bool as Exhaustive>::Num, Output: ArrayLength>>, // works
+/// {
+///     type Num = U0;
+/// }
+/// ```
 #[proc_macro_derive(Exhaustive)]
 pub fn exhaustive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -60,6 +89,7 @@ macro_rules! shortcuts {
 
 shortcuts! {
     struct Shortcuts {
+        core::marker:::Sized,
         core::marker:::Copy,
         core::mem:::MaybeUninit,
         core::ops:::Add,
@@ -74,11 +104,49 @@ shortcuts! {
     }
 }
 
+// general description of how the macro works:
+// - works on a set of fields
+//   - this could be the `{ .. }` in `SomeStruct { .. }`
+//   - or the `{ .. }` in `SomeEnum::Variant { .. }`
+// - make a `all` array, which will be the result of `Exhaustive::ALL`
+// - make a `i`, which is the current index into `all` that we're writing
+// - for each field:
+//   - figure out `Num`
+//     - make a `typenum` type which represents how many values that field has
+//       - e.g. a `my_field: bool` has `<bool as Exhaustive>::Num` values
+//       - done by multiplying the `Num` of each field type together
+//       - e.g. in a `(bool, Option<bool>)` `Num` is `<bool::Num as Mul<
+//         <Option<bool>>::Num >>::Output`
+//     - write a where-clause predicate that expresses that the type we've made
+//       above is bounded by `ArrayLength<ArrayType<Self>: Copy>`
+//       - required when deriving on a type with type parameters
+//       - this is structured as `U1: #bound`
+//       - `#bound` starts off as `ArrayType<Self>: Copy`
+//       - for each field, we wrap the existing `#bound` in `Mul<#field_ty::Num,
+//         Output: #bound>`
+//   - figure out `ALL`
+//     - write all its values into `all`, and increase `i` accordingly
+//
+// - for structs, we take the resulting `Num` and `all`, and use those directly
+//
+// - for enums
+//   - we take all the type bounds we've made from the field sets, and add those
+//     to the `where` clause
+//   - we also compute a final where predicate, in the form of `U0: #bound`
+//     - starts off as `U0: ArrayLength<ArrayType<Self>: Copy>`
+//     - for each field, we wrap the existing `#bound` in `Add<#field_ty::Num,
+//       Output: #bound>`
+//   - take all those where predicates, plus our final predicate, put them in
+//     the impl block
+//   - take the resulting `Num` and `all`, and put those into `Num` and `ALL`
+
 fn derive(input: &DeriveInput) -> Result<TokenStream> {
     let Shortcuts {
         Exhaustive,
         MaybeUninit,
         GenericArray,
+        Sized,
+        Copy,
         const_transmute,
         ..
     } = Shortcuts::default();
@@ -86,7 +154,7 @@ fn derive(input: &DeriveInput) -> Result<TokenStream> {
     let ExhaustiveImpl {
         num,
         values,
-        predicate,
+        predicates,
     } = match &input.data {
         Data::Struct(data) => make_for_struct(data),
         Data::Enum(data) => make_for_enum(data),
@@ -101,16 +169,11 @@ fn derive(input: &DeriveInput) -> Result<TokenStream> {
     let name = &input.ident;
 
     let mut generics = input.generics.clone();
-    let type_params = generics
-        .type_params()
-        .map(|p| p.ident.clone())
-        .collect::<Vec<_>>();
-    for param in type_params {
-        generics.make_where_clause().predicates.push(parse_quote! {
-            #param: #Exhaustive
-        });
-    }
-    generics.make_where_clause().predicates.push(predicate);
+    generics.make_where_clause().predicates.push(parse_quote! {
+        // same bounds as `Exhaustive`
+        Self: #Sized + #Copy
+    });
+    generics.make_where_clause().predicates.extend(predicates);
 
     let (impl_generics, type_generics, where_clause) = generics.split_for_impl();
 
@@ -135,7 +198,7 @@ fn derive(input: &DeriveInput) -> Result<TokenStream> {
 struct ExhaustiveImpl {
     num: TokenStream,
     values: TokenStream,
-    predicate: WherePredicate,
+    predicates: Vec<WherePredicate>,
 }
 
 fn make_for_struct(data: &DataStruct) -> ExhaustiveImpl {
@@ -143,16 +206,11 @@ fn make_for_struct(data: &DataStruct) -> ExhaustiveImpl {
 }
 
 fn make_for_enum(data: &DataEnum) -> ExhaustiveImpl {
-    struct VariantInfo {
-        num: TokenStream,
-        values: TokenStream,
-    }
-
     let Shortcuts {
         U0,
-        U1,
         Add,
         ArrayLength,
+        Copy,
         ..
     } = Shortcuts::default();
 
@@ -161,24 +219,40 @@ fn make_for_enum(data: &DataEnum) -> ExhaustiveImpl {
         .iter()
         .map(|variant| {
             let ident = &variant.ident;
-            let ExhaustiveImpl {
-                num,
-                values,
-                predicate,
-            } = make_for_fields(&variant.fields, quote! { Self::#ident });
-            VariantInfo { num, values }
+            make_for_fields(&variant.fields, quote! { Self::#ident })
         })
         .collect::<Vec<_>>();
 
+    // note the order of folds below:
+    // - `Num` definition is left fold
+    // - `Num` bound is right fold, opposite of `Num` definition
+    // this is the opposite of what structs need, how interesting!
+    // I wonder why?
+
     let num = variants
         .iter()
-        .fold(quote! { #U0 }, |acc, VariantInfo { num, .. }| {
+        .fold(quote! { #U0 }, |acc, ExhaustiveImpl { num, .. }| {
             quote! { <#acc as #Add<#num>>::Output }
         });
 
+    let bound = variants.iter().rfold(
+        quote! { #ArrayLength<ArrayType<Self>: #Copy> },
+        |acc, ExhaustiveImpl { num, .. }| {
+            quote! {
+                #Add<#num, Output: #acc>
+            }
+        },
+    );
+    let predicate = parse_quote! { #U0: #bound };
+    let predicates = variants
+        .iter()
+        .flat_map(|e| e.predicates.clone())
+        .chain(once(predicate))
+        .collect::<Vec<_>>();
+
     let values = variants
         .iter()
-        .map(|VariantInfo { values, .. }| {
+        .map(|ExhaustiveImpl { values, .. }| {
             quote! {
                 {
                     #values
@@ -193,8 +267,7 @@ fn make_for_enum(data: &DataEnum) -> ExhaustiveImpl {
     ExhaustiveImpl {
         num,
         values,
-        // TODO
-        predicate: parse_quote! { #U1: #ArrayLength<ArrayType<Self>: Copy> },
+        predicates,
     }
 }
 
@@ -202,6 +275,7 @@ fn make_for_fields(fields: &Fields, construct_ident: impl ToTokens) -> Exhaustiv
     struct FieldInfo<'a> {
         field: &'a Field,
         index: Ident,
+        ty: &'a Type,
     }
 
     const fn require_ident(field: &Field) -> &Ident {
@@ -239,12 +313,16 @@ fn make_for_fields(fields: &Fields, construct_ident: impl ToTokens) -> Exhaustiv
                 .enumerate()
                 .map(|(index, field)| {
                     let index = Ident::new(&format!("i_{index}"), Span::call_site());
-                    FieldInfo { field, index }
+                    FieldInfo {
+                        field,
+                        index,
+                        ty: &field.ty,
+                    }
                 })
                 .collect::<Vec<_>>();
             let construct = fields
                 .iter()
-                .map(|FieldInfo { field, index }| get_value(&field.ty, index));
+                .map(|FieldInfo { field, index, .. }| get_value(&field.ty, index));
             let construct = quote! {
                 (
                     #(#construct),*
@@ -259,12 +337,16 @@ fn make_for_fields(fields: &Fields, construct_ident: impl ToTokens) -> Exhaustiv
                 .map(|field| {
                     let ident = require_ident(field);
                     let index = Ident::new(&format!("i_{ident}"), Span::call_site());
-                    FieldInfo { field, index }
+                    FieldInfo {
+                        field,
+                        index,
+                        ty: &field.ty,
+                    }
                 })
                 .collect::<Vec<_>>();
             let construct = fields
                 .iter()
-                .map(|FieldInfo { field, index }| {
+                .map(|FieldInfo { field, index, .. }| {
                     let ident = require_ident(field);
                     let get_value = get_value(&field.ty, index);
                     quote! { #ident: #get_value }
@@ -279,7 +361,8 @@ fn make_for_fields(fields: &Fields, construct_ident: impl ToTokens) -> Exhaustiv
         }
     };
 
-    // this one is right fold
+    // see comment about order of folds above
+
     let num = fields
         .iter()
         .rfold(quote! { #U1 }, |acc, FieldInfo { field, .. }| {
@@ -289,8 +372,6 @@ fn make_for_fields(fields: &Fields, construct_ident: impl ToTokens) -> Exhaustiv
             }
         });
 
-    // and this one is left fold
-    // has to be the opposite folding order to `num`
     let bound = fields.iter().fold(
         quote! { #ArrayLength<ArrayType<Self>: #Copy> },
         |acc, FieldInfo { field, .. }| {
@@ -300,7 +381,17 @@ fn make_for_fields(fields: &Fields, construct_ident: impl ToTokens) -> Exhaustiv
             }
         },
     );
-    let predicate = parse_quote! { #U1: #bound };
+    let extra_predicate = parse_quote! { #U1: #bound };
+
+    let predicates = fields
+        .iter()
+        .map(|FieldInfo { ty, .. }| {
+            parse_quote! {
+                #ty: #Exhaustive<Num: #ArrayLength<ArrayType<Self>: #Copy>>
+            }
+        })
+        .chain(once(extra_predicate))
+        .collect::<Vec<_>>();
 
     // rfold here so that the value order matches the tuple value order
     // e.g. we generate i_0 { i_1 { i_2 } }
@@ -325,6 +416,6 @@ fn make_for_fields(fields: &Fields, construct_ident: impl ToTokens) -> Exhaustiv
     ExhaustiveImpl {
         num,
         values,
-        predicate,
+        predicates,
     }
 }
