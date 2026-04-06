@@ -238,8 +238,8 @@ fn compound() {
     );
 }
 
-// #[test]
-// fn generic() {
-//     #[derive(Debug, Clone, Copy, PartialEq, Exhaustive)]
-//     struct Wrapper<T>(T);
-// }
+#[test]
+fn generic() {
+    #[derive(Debug, Clone, Copy, PartialEq)]
+    struct Wrapper<T>(T);
+}

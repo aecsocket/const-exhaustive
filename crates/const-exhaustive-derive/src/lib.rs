@@ -60,7 +60,6 @@ macro_rules! shortcuts {
 
 shortcuts! {
     struct Shortcuts {
-        core::cell:::UnsafeCell,
         core::mem:::MaybeUninit,
         core::ops:::Add,
         core::ops:::Mul,
@@ -76,7 +75,6 @@ shortcuts! {
 fn derive(input: &DeriveInput) -> Result<TokenStream> {
     let Shortcuts {
         Exhaustive,
-        UnsafeCell,
         MaybeUninit,
         GenericArray,
         const_transmute,
@@ -104,7 +102,7 @@ fn derive(input: &DeriveInput) -> Result<TokenStream> {
             type Num = #num;
 
             const ALL: #GenericArray<Self, Self::Num> = {
-                let all: #GenericArray<#UnsafeCell<#MaybeUninit<Self>>, Self::Num> = unsafe {
+                let mut all: #GenericArray<#MaybeUninit<Self>, Self::Num> = unsafe {
                     #MaybeUninit::uninit().assume_init()
                 };
 
@@ -275,9 +273,7 @@ fn make_for_fields(fields: &Fields, construct_ident: impl ToTokens) -> Exhaustiv
     //       instead of i_2 { i_1 { i_0 } }
     let values = fields.iter().rfold(
         quote! {
-            unsafe {
-                *all.as_slice()[i].get() = #MaybeUninit::new(#construct_ident #construct);
-            };
+            all.as_mut_slice()[i] = #MaybeUninit::new(#construct_ident #construct);
             i += 1;
         },
         |acc, FieldInfo { field, index, .. }| {

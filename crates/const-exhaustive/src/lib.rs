@@ -12,7 +12,6 @@ use {
     array::{concat, from_fn, map},
     const_default::ConstDefault,
     core::{
-        cell::UnsafeCell,
         convert::Infallible,
         marker::{PhantomData, PhantomPinned},
         mem::MaybeUninit,
@@ -345,16 +344,14 @@ macro_rules! impl_variadic {
             type Num = ProdAll<($($T::Num,)*)>;
 
             const ALL: GenericArray<Self, Self::Num> = {
-                let all: GenericArray<UnsafeCell<MaybeUninit<Self>>, Self::Num> =
+                let mut all: GenericArray<MaybeUninit<Self>, Self::Num> =
                     unsafe { MaybeUninit::uninit().assume_init() };
 
                 let mut i = 0;
                 while i < <ProdAll<($($T::Num,)*)>>::USIZE {
                     let [$($t,)*] = split_index(i, [$($T::Num::USIZE,)*]);
                     let tuple = ($($T::ALL.as_slice()[$t],)*);
-                    unsafe {
-                        *all.as_slice()[i].get() = MaybeUninit::new(tuple);
-                    }
+                    all.as_mut_slice()[i] = MaybeUninit::new(tuple);
                     i += 1;
                 }
 
